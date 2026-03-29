@@ -1,12 +1,21 @@
-// Package tomlcp provides comment-preserving TOML parsing and serialization.
+// Package tomlsawyer provides comment-preserving TOML parsing and serialization.
 //
 // This package wraps github.com/creachadair/tomledit to provide a stable,
 // user-friendly API for reading, modifying, and writing TOML files while
 // preserving all comments, formatting, and declaration order.
 //
-// The package supports TOML-compliant path parsing, including quoted keys
-// for special characters. For example: aliases."." or section."key with spaces".
-// Invalid paths like "aliases." (trailing dot) are rejected.
+// # Path Syntax
+//
+// All methods that accept a path parameter use TOML dotted-key syntax:
+// simple keys like "name", nested keys like "server.host", and quoted keys
+// for special characters like aliases."." or section."key with spaces".
+// Paths are parsed using TOML's own key grammar, so any valid TOML key
+// works as a path segment when quoted. Invalid paths like "foo." (trailing
+// dot) or ".foo" (leading dot) are rejected.
+//
+// Path segments and raw key names are different things. A path like
+// aliases."." has two segments (aliases and .). The [Document.Keys] method
+// returns raw key names, not paths.
 //
 // Example usage:
 //
@@ -28,7 +37,7 @@
 //
 //	// Write back with comments preserved
 //	output := doc.String()
-package toml
+package tomlsawyer
 
 import (
 	"bytes"
@@ -338,7 +347,7 @@ func (d *Document) Move(oldPath, newPath string) error {
 
 	entry := d.doc.First(oldKeys...)
 	if entry == nil {
-		return fmt.Errorf("path %q not found", oldPath)
+		return fmt.Errorf("failed to move: path %q not found", oldPath)
 	}
 
 	if entry.IsSection() {
@@ -371,18 +380,28 @@ func (d *Document) Move(oldPath, newPath string) error {
 		kv := entry.KeyValue
 		entry.Remove()
 
-		// Set the key name to just the last segment (relative to new section)
-		kv.Name = parser.Key{newKeys[len(newKeys)-1]}
-
-		// Find or create the destination section
 		destSectionKey := newKeys[:len(newKeys)-1]
 		if len(destSectionKey) == 0 {
-			// Moving to the global section
+			// Moving to the global section with just the key name
+			kv.Name = parser.Key{newKeys[len(newKeys)-1]}
 			if d.doc.Global == nil {
 				d.doc.Global = &tomledit.Section{}
 			}
 			transform.InsertMapping(d.doc.Global, kv, true)
+		} else if d.hasDottedKeysWithPrefix(destSectionKey) {
+			// Destination has dotted keys — use dotted style to match
+			kv.Name = copyKey(newKeys)
+			if d.doc.Global == nil {
+				d.doc.Global = &tomledit.Section{}
+			}
+			transform.InsertMapping(d.doc.Global, kv, true)
+		} else if t := transform.FindTable(d.doc, destSectionKey...); t != nil {
+			// Destination section exists — add to it
+			kv.Name = parser.Key{newKeys[len(newKeys)-1]}
+			transform.InsertMapping(t.Section, kv, true)
 		} else {
+			// No existing context — create section
+			kv.Name = parser.Key{newKeys[len(newKeys)-1]}
 			section, err := d.ensureSection(destSectionKey)
 			if err != nil {
 				return fmt.Errorf("failed to create destination section: %w", err)
@@ -392,7 +411,7 @@ func (d *Document) Move(oldPath, newPath string) error {
 		return nil
 	}
 
-	return fmt.Errorf("path %q not found", oldPath)
+	return fmt.Errorf("failed to move: path %q not found", oldPath)
 }
 
 // Delete removes a key at the given path.
@@ -644,6 +663,45 @@ func (d *Document) TopLevelKeys() []string {
 	return result
 }
 
+// Prune removes empty sections from the document. A section is considered
+// empty if it contains no key-value items (comments-only sections are also
+// removed). This is useful after Delete or Move operations that may leave
+// behind stale section headers.
+func (d *Document) Prune() {
+	// Build a set of section names that have children.
+	hasChild := make(map[string]bool)
+	for _, sec := range d.doc.Sections {
+		if sec.Heading == nil {
+			continue
+		}
+		name := sec.Heading.Name
+		for i := 1; i < len(name); i++ {
+			hasChild[parser.Key(name[:i]).String()] = true
+		}
+	}
+
+	filtered := d.doc.Sections[:0]
+	for _, sec := range d.doc.Sections {
+		if sec.Heading == nil {
+			filtered = append(filtered, sec)
+			continue
+		}
+
+		hasKV := false
+		for _, item := range sec.Items {
+			if _, ok := item.(*parser.KeyValue); ok {
+				hasKV = true
+				break
+			}
+		}
+
+		if hasKV || hasChild[sec.Heading.Name.String()] {
+			filtered = append(filtered, sec)
+		}
+	}
+	d.doc.Sections = filtered
+}
+
 // String serializes the document back to TOML format, preserving all
 // comments, formatting, and declaration order.
 func (d *Document) String() string {
@@ -670,14 +728,14 @@ func (d *Document) Bytes() []byte {
 //   - "" -> error (empty path not allowed)
 func parseKeyPath(path string) (parser.Key, error) {
 	if path == "" {
-		return nil, fmt.Errorf("empty path")
+		return nil, fmt.Errorf("failed to parse path: empty path")
 	}
 
 	// Use tomledit's parser.ParseKey which handles quoted keys and validates
 	// according to TOML specification
 	key, err := parser.ParseKey(path)
 	if err != nil {
-		return nil, fmt.Errorf("invalid path %q: %w", path, err)
+		return nil, fmt.Errorf("failed to parse path %q: %w", path, err)
 	}
 
 	return key, nil
@@ -742,7 +800,7 @@ func parseValue(v parser.Value) (any, error) {
 		return result, nil
 
 	default:
-		return nil, fmt.Errorf("unsupported value type: %T", v.X)
+		return nil, fmt.Errorf("failed to parse value: unsupported type %T", v.X)
 	}
 }
 
@@ -806,7 +864,7 @@ func FormatValueToString(v any) (string, error) {
 		return "{" + strings.Join(parts, ", ") + "}", nil
 
 	default:
-		return "", fmt.Errorf("unsupported value type: %T", v)
+		return "", fmt.Errorf("failed to format value: unsupported type %T", v)
 	}
 }
 

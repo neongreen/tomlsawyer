@@ -5,7 +5,7 @@ import (
 	"log"
 	"strings"
 
-	toml "github.com/neongreen/tomlsawyer"
+	"github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -28,7 +28,7 @@ url = "postgres://localhost/mydb"
 max_connections = 100
 `
 
-	doc, err := toml.ParseString(input)
+	doc, err := tomlsawyer.ParseString(input)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,4 +1,4 @@
-package toml
+package tomlsawyer
 
 import (
 	"testing"
@@ -448,5 +448,55 @@ func TestMovePreservesInlineTableValue(t *testing.T) {
 	}
 	if tbl["x"] != int64(1) || tbl["y"] != int64(2) {
 		t.Errorf("b.tbl = %v, want {x:1, y:2}", tbl)
+	}
+}
+
+// --- Dotted key style preservation on cross-section move ---
+
+func TestMoveCrossSectionPreservesDottedStyle(t *testing.T) {
+	// When destination already has dotted keys, the moved key should stay dotted
+	input := "server.host = \"localhost\"\nserver.port = 8080\napp.name = \"myapp\"\n"
+	doc, err := ParseString(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := doc.Move("server.host", "app.host"); err != nil {
+		t.Fatal(err)
+	}
+	output := doc.String()
+	// app.host should be dotted, not under a [app] section
+	doc2, err := ParseString(output)
+	if err != nil {
+		t.Fatalf("invalid TOML: %v", err)
+	}
+	val, _ := doc2.Get("app.host")
+	if val != "localhost" {
+		t.Errorf("app.host = %v, want localhost", val)
+	}
+	if doc2.Has("server.host") {
+		t.Error("server.host should be gone")
+	}
+	// Verify dotted style is used (no [app] section header)
+	wantGolden(t, output, "server.port = 8080\napp.name = \"myapp\"\napp.host = \"localhost\"\n")
+}
+
+func TestMoveCrossSectionToExistingSection(t *testing.T) {
+	// When destination is an existing section, insert into it
+	input := "server.host = \"localhost\"\n\n[app]\nname = \"myapp\"\n"
+	doc, err := ParseString(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := doc.Move("server.host", "app.host"); err != nil {
+		t.Fatal(err)
+	}
+	output := doc.String()
+	doc2, err := ParseString(output)
+	if err != nil {
+		t.Fatalf("invalid TOML: %v", err)
+	}
+	val, _ := doc2.Get("app.host")
+	if val != "localhost" {
+		t.Errorf("app.host = %v, want localhost", val)
 	}
 }

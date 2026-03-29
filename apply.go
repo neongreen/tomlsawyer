@@ -1,4 +1,4 @@
-package toml
+package tomlsawyer
 
 import (
 	"fmt"
@@ -9,7 +9,6 @@ import (
 	"unicode"
 
 	"github.com/creachadair/tomledit/parser"
-	tomlv2 "github.com/pelletier/go-toml/v2"
 )
 
 // WriteFile writes the provided values to the given TOML file while preserving
@@ -54,7 +53,7 @@ func WriteFile(path string, values map[string]any) error {
 // updates without affecting unmanaged configuration.
 func (d *Document) ApplyMap(values map[string]any) error {
 	if d == nil {
-		return fmt.Errorf("cannot apply values to a nil document")
+		return fmt.Errorf("failed to apply map: nil document")
 	}
 
 	desired := flattenValues(values)
@@ -81,19 +80,12 @@ func (d *Document) ApplyMap(values map[string]any) error {
 // preserve unmanaged keys.
 func (d *Document) ReplaceMap(values map[string]any) error {
 	if d == nil {
-		return fmt.Errorf("cannot apply values to a nil document")
+		return fmt.Errorf("failed to replace map: nil document")
 	}
 
 	desired := flattenValues(values)
 
-	var existing map[string]any
-	if data := d.Bytes(); len(data) > 0 {
-		if err := tomlv2.Unmarshal(data, &existing); err != nil {
-			return fmt.Errorf("failed to parse existing document: %w", err)
-		}
-	}
-
-	current := flattenValues(existing)
+	current := d.collectPaths()
 
 	// Delete keys that are not in desired values
 	for path := range current {
@@ -117,6 +109,51 @@ func (d *Document) ReplaceMap(values map[string]any) error {
 	}
 
 	return nil
+}
+
+// collectPaths walks the document AST and returns a flat map of all leaf
+// key paths to their parsed Go values.
+func (d *Document) collectPaths() map[string]any {
+	result := make(map[string]any)
+
+	collectItems := func(prefix parser.Key, items []parser.Item) {
+		for _, item := range items {
+			kv, ok := item.(*parser.KeyValue)
+			if !ok {
+				continue
+			}
+			full := append(parser.Key(nil), prefix...)
+			full = append(full, kv.Name...)
+			pathStr := formatKeyPath(full)
+			val, err := parseValue(kv.Value)
+			if err != nil {
+				continue
+			}
+			result[pathStr] = val
+		}
+	}
+
+	if d.doc.Global != nil {
+		collectItems(nil, d.doc.Global.Items)
+	}
+	for _, sec := range d.doc.Sections {
+		if sec.Heading == nil {
+			continue
+		}
+		collectItems(sec.Heading.Name, sec.Items)
+	}
+
+	return result
+}
+
+// formatKeyPath formats a parser.Key as a dotted path string, quoting segments
+// that are not valid bare keys.
+func formatKeyPath(key parser.Key) string {
+	parts := make([]string, len(key))
+	for i, seg := range key {
+		parts[i] = formatKeySegment(seg)
+	}
+	return strings.Join(parts, ".")
 }
 
 func flattenValues(values map[string]any) map[string]any {

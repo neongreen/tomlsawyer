@@ -1,4 +1,4 @@
-package toml
+package tomlsawyer
 
 import (
 	"strings"
@@ -69,31 +69,31 @@ func TestParseKeyPath(t *testing.T) {
 			name:      "trailing dot",
 			path:      "aliases.",
 			wantErr:   true,
-			errSubstr: "invalid path",
+			errSubstr: "failed to parse path",
 		},
 		{
 			name:      "leading dot",
 			path:      ".aliases",
 			wantErr:   true,
-			errSubstr: "invalid path",
+			errSubstr: "failed to parse path",
 		},
 		{
 			name:      "double dot in middle",
 			path:      "server..host",
 			wantErr:   true,
-			errSubstr: "invalid path",
+			errSubstr: "failed to parse path",
 		},
 		{
 			name:      "just a dot",
 			path:      ".",
 			wantErr:   true,
-			errSubstr: "invalid path",
+			errSubstr: "failed to parse path",
 		},
 		{
 			name:      "double dots",
 			path:      "..",
 			wantErr:   true,
-			errSubstr: "invalid path",
+			errSubstr: "failed to parse path",
 		},
 	}
 

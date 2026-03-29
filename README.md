@@ -73,6 +73,19 @@ url = "postgres://localhost/db"
 }
 ```
 
+## Path Syntax
+
+All methods that accept a `path` parameter use TOML dotted-key syntax to address nested values:
+
+- Simple keys: `"name"`, `"version"`
+- Nested keys: `"server.host"`, `"database.connection.timeout"`  
+- Quoted keys for special characters: `aliases."."`, `section."key with spaces"`
+- Mixed: `config."my.setting".value`
+
+The path is parsed using TOML's own key grammar, so any valid TOML key works as a path segment when quoted. Invalid paths like `"foo."` (trailing dot) or `".foo"` (leading dot) are rejected.
+
+**Important**: path segments and raw key names are different things. A path like `aliases."."` has two segments (`aliases` and `.`). The `Keys()` method returns raw key names — so it would return `"."` as a string, not `"aliases.\".\"".`
+
 ## API Documentation
 
 ### Parsing

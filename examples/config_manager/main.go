@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	toml "github.com/neongreen/tomlsawyer"
+	"github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -68,7 +68,7 @@ output = "stdout"       # Output: stdout, stderr, file
 		log.Fatal(err)
 	}
 
-	doc, err := toml.Parse(data)
+	doc, err := tomlsawyer.Parse(data)
 	if err != nil {
 		log.Fatal(err)
 	}

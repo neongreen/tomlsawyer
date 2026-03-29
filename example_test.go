@@ -1,13 +1,13 @@
-package toml_test
+package tomlsawyer_test
 
 import (
 	"fmt"
 
-	toml "github.com/neongreen/tomlsawyer"
+	"github.com/neongreen/tomlsawyer"
 )
 
 func ExampleDocument_Get() {
-	doc, _ := toml.ParseString(`
+	doc, _ := tomlsawyer.ParseString(`
 [server]
 host = "localhost"
 port = 8080
@@ -18,7 +18,7 @@ port = 8080
 }
 
 func ExampleDocument_Set() {
-	doc, _ := toml.ParseString(`
+	doc, _ := tomlsawyer.ParseString(`
 [server]
 host = "localhost"
 port = 8080
@@ -32,7 +32,7 @@ port = 8080
 }
 
 func ExampleDocument_Keys() {
-	doc, _ := toml.ParseString(`
+	doc, _ := tomlsawyer.ParseString(`
 [users]
 alice = { role = "admin" }
 bob = { role = "user" }
@@ -43,7 +43,7 @@ bob = { role = "user" }
 }
 
 func ExampleDocument_Keys_quotedKeys() {
-	doc, _ := toml.ParseString(`
+	doc, _ := tomlsawyer.ParseString(`
 [aliases]
 "." = "status"
 ".." = "show @-"
@@ -61,7 +61,7 @@ l = "log"
 }
 
 func ExampleDocument_Has() {
-	doc, _ := toml.ParseString(`
+	doc, _ := tomlsawyer.ParseString(`
 [server]
 host = "localhost"
 `)
@@ -75,7 +75,7 @@ host = "localhost"
 }
 
 func ExampleDocument_TopLevelKeys() {
-	doc, _ := toml.ParseString(`
+	doc, _ := tomlsawyer.ParseString(`
 name = "myapp"
 version = 1
 
@@ -88,4 +88,50 @@ url = "postgres://localhost"
 	keys := doc.TopLevelKeys()
 	fmt.Println(keys)
 	// Output: [name version server database]
+}
+
+func ExampleDocument_Move() {
+	doc, _ := tomlsawyer.ParseString(`
+[server]
+host = "localhost"
+port = 8080
+`)
+	doc.Move("server", "app.server")
+	fmt.Print(doc.String())
+	// Output:
+	// [app.server]
+	// host = "localhost"
+	// port = 8080
+}
+
+func ExampleDocument_Move_crossSection() {
+	doc, _ := tomlsawyer.ParseString(`
+[old]
+timeout = 30
+
+[new]
+host = "localhost"
+`)
+	doc.Move("old.timeout", "new.timeout")
+	doc.Prune() // remove empty [old] section
+	fmt.Print(doc.String())
+	// Output:
+	// [new]
+	// host = "localhost"
+	// timeout = 30
+}
+
+func ExampleDocument_ApplyMap() {
+	doc, _ := tomlsawyer.ParseString(`name = "myapp"
+version = "1.0"
+`)
+	doc.ApplyMap(map[string]any{
+		"version": "2.0",
+		"author":  "Alice",
+	})
+	fmt.Print(doc.String())
+	// Output:
+	// name = "myapp"
+	// version = "2.0"
+	// author = "Alice"
 }
