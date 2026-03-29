@@ -314,10 +314,19 @@ func copyKey(key parser.Key) parser.Key {
 	return out
 }
 
-// Rename renames a section or key at the given dotted path. Both oldPath and
-// newPath use the same path syntax as Get/Set/Delete. For sections, child
-// sections are also renamed. Comments, formatting, and position are preserved.
-func (d *Document) Rename(oldPath, newPath string) error {
+// Move renames or moves a section or key, like Unix mv. Both oldPath and
+// newPath use the same path syntax as [Document.Get].
+//
+// For sections, child sections are also renamed (e.g. moving "foo.bar" to
+// "foo.qux" also renames "foo.bar.baz" to "foo.qux.baz"). Comments,
+// formatting, and position are preserved.
+//
+// For key-value entries within the same section (e.g. "server.host" to
+// "server.addr"), the key is renamed in place. For cross-section moves
+// (e.g. "server.host" to "app.host"), the key is removed from the source
+// section and inserted into the destination, creating it if needed. Block
+// comments and inline comments on the key are preserved.
+func (d *Document) Move(oldPath, newPath string) error {
 	oldKeys, err := parseKeyPath(oldPath)
 	if err != nil {
 		return err
@@ -351,10 +360,35 @@ func (d *Document) Rename(oldPath, newPath string) error {
 	if entry.IsMapping() {
 		oldParent := oldKeys[:len(oldKeys)-1]
 		newParent := newKeys[:len(newKeys)-1]
-		if !parser.Key(oldParent).Equals(newParent) {
-			return fmt.Errorf("cross-section key rename not supported, use Get/Set/Delete")
+
+		if parser.Key(oldParent).Equals(newParent) {
+			// Same section — just rename the last key segment
+			entry.KeyValue.Name[len(entry.KeyValue.Name)-1] = newKeys[len(newKeys)-1]
+			return nil
 		}
-		entry.KeyValue.Name[len(entry.KeyValue.Name)-1] = newKeys[len(newKeys)-1]
+
+		// Cross-section move: remove from source, insert into destination
+		kv := entry.KeyValue
+		entry.Remove()
+
+		// Set the key name to just the last segment (relative to new section)
+		kv.Name = parser.Key{newKeys[len(newKeys)-1]}
+
+		// Find or create the destination section
+		destSectionKey := newKeys[:len(newKeys)-1]
+		if len(destSectionKey) == 0 {
+			// Moving to the global section
+			if d.doc.Global == nil {
+				d.doc.Global = &tomledit.Section{}
+			}
+			transform.InsertMapping(d.doc.Global, kv, true)
+		} else {
+			section, err := d.ensureSection(destSectionKey)
+			if err != nil {
+				return fmt.Errorf("failed to create destination section: %w", err)
+			}
+			transform.InsertMapping(section, kv, true)
+		}
 		return nil
 	}
 

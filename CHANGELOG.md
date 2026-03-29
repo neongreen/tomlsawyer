@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keys() works with dotted key prefixes
 - Has() works for sections and dotted key prefixes
 - TopLevelKeys() method
-- Rename() method
+- Move() method (rename/move sections and keys, like Unix mv)
 - ApplyMap/ReplaceMap for bulk operations
 - WriteFile helper
 - Full TOML v1.0.0 support
