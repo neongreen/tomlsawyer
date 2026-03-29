@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -34,7 +33,6 @@ func TestRenameSectionStyleKey(t *testing.T) {
 	}
 
 	output := doc.String()
-	t.Log("Section-style rename output:\n" + output)
 
 	// Verify the value was moved
 	doc2, err := Parse([]byte(output))
@@ -50,17 +48,15 @@ func TestRenameSectionStyleKey(t *testing.T) {
 		t.Fatal("foo.bar.x should not exist in output")
 	}
 
-	// Document whether section style is preserved.
-	// Ideal: output contains [foo.qux] (section style matching the original [foo.bar]).
-	if strings.Contains(output, "[foo.qux]") {
-		t.Log("✓ Section style preserved — [foo.qux] header created")
-	} else {
-		t.Log("⚠ Section style NOT preserved — new key was not placed under a [foo.qux] header")
-		// The empty [foo.bar] header may also linger.
-	}
-	if strings.Contains(output, "[foo.bar]") {
-		t.Log("⚠ Stale [foo.bar] header remains in output (Delete only removed the key, not the empty section)")
-	}
+	// Stale [foo.bar] header remains (Delete removes the key, not the empty section).
+	// New key goes under [foo.qux] via Set, which uses section style.
+	wantGolden(t, output, `[foo.bar]
+
+[foo]
+
+[foo.qux]
+x = 1
+`)
 }
 
 func TestRenameDottedKey(t *testing.T) {
@@ -85,7 +81,6 @@ func TestRenameDottedKey(t *testing.T) {
 	}
 
 	output := doc.String()
-	t.Log("Dotted-key rename output:\n" + output)
 
 	// Verify the value was moved
 	doc2, err := Parse([]byte(output))
@@ -97,13 +92,12 @@ func TestRenameDottedKey(t *testing.T) {
 		t.Fatal("app.host should exist in output")
 	}
 
-	// Document whether dotted style is preserved.
-	// Ideal: output uses "app.host = ..." (dotted style) rather than a [app] section.
-	if strings.Contains(output, "app.host") && !strings.Contains(output, "[app]") {
-		t.Log("✓ Dotted key style preserved for new key")
-	} else if strings.Contains(output, "[app]") {
-		t.Log("⚠ Dotted key style NOT preserved — new key was placed under [app] section instead")
-	}
+	// Set creates an [app] section rather than preserving dotted-key style.
+	wantGolden(t, output, `server.port = 8080
+
+[app]
+host = "localhost"
+`)
 }
 
 func TestRenamePreservesComment(t *testing.T) {
@@ -128,7 +122,6 @@ func TestRenamePreservesComment(t *testing.T) {
 	}
 
 	output := doc.String()
-	t.Log("Comment preservation after rename:\n" + output)
 
 	// Verify the value was moved
 	doc2, err := Parse([]byte(output))
@@ -140,13 +133,12 @@ func TestRenamePreservesComment(t *testing.T) {
 		t.Fatal("config.timeout should exist in output")
 	}
 
-	// Document whether the inline comment survives.
-	// Ideal: "# seconds" appears on the same line as the new key.
-	if strings.Contains(output, "# seconds") {
-		t.Log("✓ Inline comment preserved after rename")
-	} else {
-		t.Log("⚠ Inline comment LOST during rename — Get returns a plain value, losing the comment")
-	}
+	// Inline comment "# seconds" is lost: Get returns a plain value.
+	wantGolden(t, output, `[settings]
+
+[config]
+timeout = 30
+`)
 }
 
 func TestRenameSectionWithMultipleKeys(t *testing.T) {
@@ -162,7 +154,6 @@ func TestRenameSectionWithMultipleKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("Keys under [old]: %v", keys)
 
 	for _, k := range keys {
 		val, err := doc.Get("old." + k)
@@ -178,7 +169,6 @@ func TestRenameSectionWithMultipleKeys(t *testing.T) {
 	}
 
 	output := doc.String()
-	t.Log("Multi-key section rename output:\n" + output)
 
 	// Verify values were moved
 	doc2, err := Parse([]byte(output))
@@ -196,15 +186,11 @@ func TestRenameSectionWithMultipleKeys(t *testing.T) {
 		}
 	}
 
-	// Document behavior
-	if strings.Contains(output, "[new]") {
-		t.Log("✓ New [new] section header created")
-	} else {
-		t.Log("⚠ No [new] section header — keys may be dotted or placed elsewhere")
-	}
-	if strings.Contains(output, "[old]") {
-		t.Log("⚠ Stale [old] header remains in output (Delete only removes keys, not empty sections)")
-	} else {
-		t.Log("✓ [old] header was cleaned up")
-	}
+	// Stale [old] header remains (Delete removes keys, not empty sections).
+	wantGolden(t, output, `[old]
+
+[new]
+a = 1
+b = 2
+`)
 }

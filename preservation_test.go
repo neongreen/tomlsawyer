@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -30,43 +29,28 @@ bravo = 4
 
 	output := doc.String()
 
-	// Check that keys appear in the original order
-	zebraPos := strings.Index(output, "zebra")
-	applePos := strings.Index(output, "apple")
-	middlePos := strings.Index(output, "middle")
-	bananaPos := strings.Index(output, "banana")
+	wantGolden(t, output, `# Config in specific order
+zebra = "last"
+apple = "first"
+middle = "modified"
+banana = "second"
 
-	if zebraPos == -1 || applePos == -1 || middlePos == -1 || bananaPos == -1 {
-		t.Fatal("Not all keys found in output")
-	}
-
-	// Verify order is preserved (zebra, apple, middle, banana)
-	if zebraPos >= applePos || applePos >= middlePos || middlePos >= bananaPos {
-		t.Errorf("Key order not preserved. Positions: zebra=%d, apple=%d, middle=%d, banana=%d",
-			zebraPos, applePos, middlePos, bananaPos)
-		t.Logf("Output:\n%s", output)
-	}
-
-	// Check section key order
-	zuluPos := strings.Index(output, "zulu")
-	alphaPos := strings.Index(output, "alpha")
-	mikePos := strings.Index(output, "mike")
-	bravoPos := strings.Index(output, "bravo")
-
-	if zuluPos >= alphaPos || alphaPos >= mikePos || mikePos >= bravoPos {
-		t.Errorf("Section key order not preserved")
-		t.Logf("Output:\n%s", output)
-	}
+[section]
+zulu = 1
+alpha = 2
+mike = 3
+bravo = 4
+`)
 }
 
 // TestQuoteStylePreservation tests that different quote styles are preserved
 func TestQuoteStylePreservation(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		modifyKey      string
-		modifyValue    string
-		shouldPreserve []string // Strings that should still be in the output
+		name        string
+		input       string
+		modifyKey   string
+		modifyValue string
+		want        string
 	}{
 		{
 			name: "double quotes",
@@ -76,9 +60,9 @@ single = 'hello world'
 `,
 			modifyKey:   "double",
 			modifyValue: "hello universe",
-			shouldPreserve: []string{
-				`single = 'hello world'`, // Single quotes should be preserved
-			},
+			want: `double = "hello universe"
+single = 'hello world'
+`,
 		},
 		{
 			name: "single quotes",
@@ -88,9 +72,9 @@ double = "world"
 `,
 			modifyKey:   "double",
 			modifyValue: "universe",
-			shouldPreserve: []string{
-				`single = 'hello'`, // Single quotes should be preserved
-			},
+			want: `single = 'hello'
+double = "universe"
+`,
 		},
 		{
 			name: "multiline basic string",
@@ -103,9 +87,12 @@ other = "simple"
 `,
 			modifyKey:   "other",
 			modifyValue: "modified",
-			shouldPreserve: []string{
-				`"""`, // Multiline delimiters should be preserved
-			},
+			want: `text = """
+Line 1
+Line 2
+Line 3"""
+other = "modified"
+`,
 		},
 		{
 			name: "multiline literal string",
@@ -118,9 +105,12 @@ other = "simple"
 `,
 			modifyKey:   "other",
 			modifyValue: "modified",
-			shouldPreserve: []string{
-				`'''`, // Multiline literal delimiters should be preserved
-			},
+			want: `text = '''
+Line 1
+Line 2
+Line 3'''
+other = "modified"
+`,
 		},
 		{
 			name: "raw string literals",
@@ -131,10 +121,10 @@ other = "normal"
 `,
 			modifyKey:   "other",
 			modifyValue: "changed",
-			shouldPreserve: []string{
-				`'C:\Users\nodejs\templates'`,
-				`'<\i\c*\s*>'`,
-			},
+			want: `path = 'C:\Users\nodejs\templates'
+regex = '<\i\c*\s*>'
+other = "changed"
+`,
 		},
 	}
 
@@ -145,20 +135,13 @@ other = "normal"
 				t.Fatalf("ParseString() error = %v", err)
 			}
 
-			// Modify a different key
 			err = doc.Set(tt.modifyKey, tt.modifyValue)
 			if err != nil {
 				t.Errorf("Set() error = %v", err)
 			}
 
 			output := doc.String()
-
-			// Check that the unmodified keys preserve their quote style
-			for _, expected := range tt.shouldPreserve {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Quote style not preserved. Expected to find: %q\nOutput:\n%s", expected, output)
-				}
-			}
+			wantGolden(t, output, tt.want)
 		})
 	}
 }
@@ -178,32 +161,27 @@ here"""
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	// Get the original output to see the quote styles
-	originalOutput := doc.String()
-	t.Logf("Original:\n%s", originalOutput)
-
-	// Modify the single quoted value
 	doc.Set("single_quoted", "goodbye")
-
-	// Modify the double quoted value
 	doc.Set("double_quoted", "universe")
 
 	output := doc.String()
-	t.Logf("Modified:\n%s", output)
 
-	// Note: This test documents current behavior
-	// We may need to enhance the library to truly preserve quote styles on modification
+	wantGolden(t, output, `single_quoted = 'goodbye'
+double_quoted = "universe"
+multiline = """
+text
+here"""
+`)
 }
 
 // TestNestednessStylePreservation tests that dotted keys vs sections are preserved
 func TestNestednessStylePreservation(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		modifyKey      string
-		modifyValue    any
-		shouldContain  []string
-		shouldNotMatch []string // Patterns that should NOT appear (e.g., unwanted section headers)
+		name        string
+		input       string
+		modifyKey   string
+		modifyValue any
+		want        string
 	}{
 		{
 			name: "dotted keys should stay dotted",
@@ -215,10 +193,11 @@ database.url = "postgres://localhost"
 `,
 			modifyKey:   "server.host",
 			modifyValue: "0.0.0.0",
-			shouldContain: []string{
-				"server.host",
-				"server.port",
-			},
+			want: `# Dotted key style
+server.host = "0.0.0.0"
+server.port = 8080
+database.url = "postgres://localhost"
+`,
 		},
 		{
 			name: "sections should stay sections",
@@ -233,10 +212,14 @@ url = "postgres://localhost"
 `,
 			modifyKey:   "server.host",
 			modifyValue: "0.0.0.0",
-			shouldContain: []string{
-				"[server]",
-				"[database]",
-			},
+			want: `# Section style
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[database]
+url = "postgres://localhost"
+`,
 		},
 		{
 			name: "mixed styles should be preserved",
@@ -254,13 +237,16 @@ database.port = 5432
 `,
 			modifyKey:   "app.version",
 			modifyValue: 2,
-			shouldContain: []string{
-				"app.name",
-				"app.version",
-				"[server]",
-				"database.url",
-				"database.port",
-			},
+			want: `# Mixed styles
+app.name = "myapp"
+app.version = 2
+
+[server]
+host = "localhost"
+port = 8080
+database.url = "postgres://localhost"
+database.port = 5432
+`,
 		},
 		{
 			name: "nested sections",
@@ -274,10 +260,13 @@ cert = "/path/to/cert"
 `,
 			modifyKey:   "server.host",
 			modifyValue: "0.0.0.0",
-			shouldContain: []string{
-				"[server]",
-				"[server.tls]",
-			},
+			want: `[server]
+host = "0.0.0.0"
+
+[server.tls]
+enabled = true
+cert = "/path/to/cert"
+`,
 		},
 		{
 			name: "deeply nested dotted keys",
@@ -288,11 +277,10 @@ a.b.f = 3
 `,
 			modifyKey:   "a.b.c.d",
 			modifyValue: 10,
-			shouldContain: []string{
-				"a.b.c.d",
-				"a.b.c.e",
-				"a.b.f",
-			},
+			want: `a.b.c.d = 10
+a.b.c.e = 2
+a.b.f = 3
+`,
 		},
 	}
 
@@ -309,19 +297,7 @@ a.b.f = 3
 			}
 
 			output := doc.String()
-			t.Logf("Output:\n%s", output)
-
-			for _, expected := range tt.shouldContain {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Expected to find %q in output, but it's missing", expected)
-				}
-			}
-
-			for _, notExpected := range tt.shouldNotMatch {
-				if strings.Contains(output, notExpected) {
-					t.Errorf("Found unwanted pattern %q in output", notExpected)
-				}
-			}
+			wantGolden(t, output, tt.want)
 		})
 	}
 }
@@ -329,7 +305,7 @@ a.b.f = 3
 // TestAddingNewKeysPreservesStyle tests that when adding new keys to existing structures,
 // we follow the existing style
 func TestAddingNewKeysPreservesStyle(t *testing.T) {
-	t.Run("adding to section preserves section style", func(t *testing.T) {
+	t.Run("adding to section", func(t *testing.T) {
 		input := `
 [server]
 host = "localhost"
@@ -340,22 +316,15 @@ port = 8080
 		doc.Set("server.timeout", 30)
 
 		output := doc.String()
-		t.Logf("Output:\n%s", output)
 
-		// The new key should be added to the [server] section
-		if !strings.Contains(output, "[server]") {
-			t.Error("Section style not preserved when adding new key")
-		}
-
-		// Check that timeout appears after the [server] header
-		serverPos := strings.Index(output, "[server]")
-		timeoutPos := strings.Index(output, "timeout")
-		if timeoutPos == -1 || timeoutPos < serverPos {
-			t.Error("New key not added to existing section")
-		}
+		wantGolden(t, output, `[server]
+host = "localhost"
+port = 8080
+timeout = 30
+`)
 	})
 
-	t.Run("adding to dotted keys area", func(t *testing.T) {
+	t.Run("adding to dotted keys", func(t *testing.T) {
 		input := `
 app.name = "myapp"
 app.version = 1
@@ -365,11 +334,11 @@ app.version = 1
 		doc.Set("app.debug", true)
 
 		output := doc.String()
-		t.Logf("Output:\n%s", output)
 
-		// Note: This documents current behavior
-		// The library may add this as a new section or as a dotted key
-		// We should verify and potentially fix this behavior
+		wantGolden(t, output, `app.name = "myapp"
+app.version = 1
+app.debug = true
+`)
 	})
 }
 
@@ -411,49 +380,48 @@ feature_b = false
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	// Make several modifications
-	doc.Set("app_version", 2)                  // Modify top-level key
-	doc.Set("server.port", 9090)               // Modify dotted key
-	doc.Set("database.host", "db.example.com") // Modify value in section
-	doc.Set("features.feature_m", false)       // Modify value in section
+	doc.Set("app_version", 2)
+	doc.Set("server.port", 9090)
+	doc.Set("database.host", "db.example.com")
+	doc.Set("features.feature_m", false)
 
 	output := doc.String()
-	t.Logf("Output:\n%s", output)
 
-	// Verify comments are preserved
-	if !strings.Contains(output, "# Application Configuration") {
-		t.Error("Top-level comment not preserved")
-	}
+	wantGolden(t, output, `# Application Configuration
+# Version 1.0
 
-	// Verify key order in features section
-	featureSection := output[strings.Index(output, "[features]"):]
-	aPos := strings.Index(featureSection, "feature_a")
-	zPos := strings.Index(featureSection, "feature_z")
-	mPos := strings.Index(featureSection, "feature_m")
-	bPos := strings.Index(featureSection, "feature_b")
+# Basic settings
+app_name = "myapp"
+app_version = 2
 
-	if aPos >= zPos || zPos >= mPos || mPos >= bPos {
-		t.Error("Feature flag order not preserved")
-	}
+# Server configuration with dotted keys
+server.host = "localhost"
+server.port = 9090
 
-	// Verify quote styles (at least for unmodified values)
-	if !strings.Contains(output, `driver = 'postgres'`) {
-		t.Error("Single quote style not preserved for unmodified value")
-	}
+# Database section
+[database]
+driver = 'postgres'  # Using single quotes
+host = "db.example.com"  # Using double quotes
+port = 5432
 
-	// Verify multiline string is preserved
-	if !strings.Contains(output, `"""`) {
-		t.Error("Multiline string delimiters not preserved")
-	}
+# Multiline description
+description = """
+This is a
+multiline string
+with multiple lines"""
 
-	// Verify section style is preserved
-	if !strings.Contains(output, "[database]") {
-		t.Error("Section header not preserved")
-	}
+# Feature flags (specific order matters!)
+[features]
+feature_a = true
+feature_z = false
+feature_m = false
+feature_b = false
+`)
 
-	// Verify dotted key style is preserved
-	if !strings.Contains(output, "server.host") || !strings.Contains(output, "server.port") {
-		t.Error("Dotted key style not preserved")
+	// Verify the output is still valid TOML
+	_, err = ParseString(output)
+	if err != nil {
+		t.Errorf("Output is not valid TOML: %v", err)
 	}
 }
 
@@ -483,7 +451,6 @@ alpha = 2
 
 	output2 := doc2.String()
 
-	// The outputs should be identical (or at least semantically equivalent)
 	if output1 != output2 {
 		t.Errorf("Round-trip not stable\nFirst output:\n%s\nSecond output:\n%s", output1, output2)
 	}

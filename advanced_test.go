@@ -272,11 +272,45 @@ hosts = [
 		}
 	}
 
-	// Verify comments are preserved
 	output := doc.String()
-	if !strings.Contains(output, "# This is a comment") {
-		t.Errorf("Comments not preserved in output")
-	}
+
+	wantGolden(t, output, `# This is a comment
+title = "TOML Example Updated"
+
+[owner]
+name = "Tom Preston-Werner"
+dob = 1979-05-27T07:32:00-08:00
+
+[database]
+server = "192.168.1.1"
+ports = [8001, 8001, 8002]
+connection_max = 10000
+enabled = true
+
+[servers]
+
+# Indented comment
+[servers.alpha]
+ip = "10.0.0.1"
+dc = "eqdc10"
+role = "primary"
+
+[servers.beta]
+ip = "10.0.0.2"
+dc = "eqdc10"
+
+[clients]
+data = [
+  ["gamma", "delta"],
+  [1, 2],
+]
+
+# Line breaks are OK when inside arrays
+hosts = ["alpha", "omega"]
+
+[new_section]
+new_key = "new_value"
+`)
 
 	// Verify round-trip
 	_, err = ParseString(output)

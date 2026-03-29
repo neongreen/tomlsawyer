@@ -691,10 +691,7 @@ func TestEdgeCases(t *testing.T) {
 		if err != nil {
 			t.Errorf("ParseString() error = %v", err)
 		}
-		output := doc.String()
-		if !strings.Contains(output, "# Just a comment") {
-			t.Errorf("Comment not preserved in output: %s", output)
-		}
+		wantGolden(t, doc.String(), "# Just a comment\n")
 	})
 
 	t.Run("special characters in strings", func(t *testing.T) {

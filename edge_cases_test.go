@@ -320,18 +320,17 @@ sku = 284758393
 	}
 
 	output := doc.String()
-	t.Logf("After modification:\n%s", output)
 
-	// Verify the array of tables structure is still intact
-	if !strings.Contains(output, "[[products]]") {
-		t.Error("Array of tables structure was lost")
-	}
+	wantGolden(t, output, `product_count = 2
 
-	// Count occurrences of [[products]]
-	count := strings.Count(output, "[[products]]")
-	if count != 2 {
-		t.Errorf("Expected 2 [[products]] sections, found %d", count)
-	}
+[[products]]
+name = "Hammer"
+sku = 738594937
+
+[[products]]
+name = "Nail"
+sku = 284758393
+`)
 }
 
 // TestQuotedKeys tests preservation of quoted keys
@@ -472,18 +471,13 @@ regular_key = "value3"
 
 	output2 := doc2.String()
 
-	// The outputs should be identical or at least preserve the quoted keys
-	if !strings.Contains(output2, `"section:with:colons"`) {
-		t.Error("Quoted section header lost in round-trip")
-	}
-	if !strings.Contains(output2, `"key:with:colons"`) {
-		t.Error("Quoted key lost in round-trip")
-	}
-	if !strings.Contains(output2, `"key with spaces"`) {
-		t.Error("Quoted key with spaces lost in round-trip")
-	}
+	wantGolden(t, output2, `["section:with:colons"]
+"key:with:colons" = "value"
 
-	t.Logf("Round-trip output:\n%s", output2)
+[normal]
+"key with spaces" = "value2"
+regular_key = "value3"
+`)
 }
 
 // TestEmptyArrayOfTables tests array of tables with no entries
@@ -504,11 +498,9 @@ version = 1
 	doc.Set("version", 2)
 
 	output := doc.String()
-	t.Logf("Output:\n%s", output)
-
-	if !strings.Contains(output, "version = 2") {
-		t.Error("Failed to update version")
-	}
+	wantGolden(t, output, `# No products yet
+version = 2
+`)
 }
 
 // TestComplexArrayStructures tests complex nested array scenarios
@@ -540,15 +532,22 @@ values = [40, 50, 60]
 	doc.Set("inline_array", []int{1, 2, 3, 4, 5})
 
 	output := doc.String()
-	t.Logf("Output:\n%s", output)
 
-	// Verify structures are preserved
-	if !strings.Contains(output, "inline_tables = [") {
-		t.Error("Inline tables array structure lost")
-	}
-	if !strings.Contains(output, "[[array_of_tables]]") {
-		t.Error("Array of tables structure lost")
-	}
+	wantGolden(t, output, `# Mix of array styles
+inline_array = [1, 2, 3, 4, 5]
+inline_tables = [
+  {  x =   1,   y =   2  },
+  {  x =   3,   y =   4  },
+]
+
+[[array_of_tables]]
+name = "first"
+values = [10, 20, 30]
+
+[[array_of_tables]]
+name = "second"
+values = [40, 50, 60]
+`)
 
 	// Verify round-trip
 	_, err = ParseString(output)
@@ -577,12 +576,11 @@ func TestQuotedDotKey(t *testing.T) {
 
 	// Verify the document can be parsed and serialized correctly
 	output := doc.String()
-	t.Logf("Serialized output:\n%s", output)
 
-	// The output should preserve the quoted dot key
-	if !strings.Contains(output, `"." = `) && !strings.Contains(output, `'.' = `) {
-		t.Errorf("Expected output to contain quoted dot key, got:\n%s", output)
-	}
+	// Parser normalizes single-quoted keys to double-quoted on output
+	wantGolden(t, output, `[aliases]
+"." = ['ci', '-m.']
+`)
 
 	// Verify round-trip parsing works
 	doc2, err := ParseString(output)
@@ -591,9 +589,9 @@ func TestQuotedDotKey(t *testing.T) {
 	}
 
 	output2 := doc2.String()
-	if !strings.Contains(output2, `"." = `) && !strings.Contains(output2, `'.' = `) {
-		t.Errorf("Round-trip lost the quoted dot key:\n%s", output2)
-	}
+	wantGolden(t, output2, `[aliases]
+"." = ['ci', '-m.']
+`)
 
 	// Document that accessing via path-based API is a known limitation
 	// The key "." cannot be accessed because the path separator is also a dot,
