@@ -1,4 +1,4 @@
-# toml - Comment-Preserving TOML Library for Go
+# tomlsawyer - Comment-Preserving TOML Library for Go
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/neongreen/tomlsawyer.svg)](https://pkg.go.dev/github.com/neongreen/tomlsawyer)
 
@@ -6,17 +6,17 @@ A Go library for parsing, modifying, and serializing TOML documents while **pres
 
 ## Features
 
-- ✅ **Comment Preservation**: All comments (block, inline, and trailing) are preserved during read-modify-write operations
-- ✅ **Format Preservation**: Original formatting and whitespace are maintained
-- ✅ **Order Preservation**: Declaration order of keys and sections is preserved
-- ✅ **Quote Style Preservation**: String quote styles (single `'`, double `"`, multiline `"""` or `'''`) are preserved when modifying values
-- ✅ **Nestedness Style Preservation**: Dotted keys (`server.host = "..."`) vs section style (`[server]` + `host = "..."`) are preserved
-- ✅ **Simple API**: Easy-to-use interface with `Get`, `Set`, `Delete`, and `Has` methods
-- ✅ **Dotted Path Support**: Access nested values using dotted paths (e.g., `server.database.host`)
-- ✅ **Quoted Key Support**: Full support for TOML quoted keys with special characters (e.g., `aliases."."`, `section."key with spaces"`)
-- ✅ **Path Validation**: Validates paths according to TOML specification, rejecting invalid paths like `aliases.` (trailing dot)
-- ✅ **Full TOML v1.0.0 Support**: Supports all TOML features including arrays, inline tables, and multiline strings
-- ✅ **Extensively Tested**: Comprehensive test suite with 39 test cases covering all edge cases
+- **Comment Preservation**: All comments (block, inline, and trailing) are preserved during read-modify-write operations
+- **Format Preservation**: Original formatting and whitespace are maintained
+- **Order Preservation**: Declaration order of keys and sections is preserved
+- **Quote Style Preservation**: String quote styles (single `'`, double `"`, multiline `"""` or `'''`) are preserved when modifying values
+- **Nestedness Style Preservation**: Dotted keys (`server.host = "..."`) vs section style (`[server]` + `host = "..."`) are preserved
+- **Simple API**: Easy-to-use interface with `Get`, `Set`, `Delete`, `Has`, and `Keys` methods
+- **Dotted Path Support**: Access nested values using dotted paths (e.g., `server.database.host`)
+- **Quoted Key Support**: Full support for TOML quoted keys with special characters (e.g., `aliases."."`, `section."key with spaces"`)
+- **Path Validation**: Validates paths according to TOML specification, rejecting invalid paths like `aliases.` (trailing dot)
+- **Full TOML v1.0.0 Support**: Supports all TOML features including arrays, inline tables, and multiline strings
+- **Extensively Tested**: Comprehensive test suite with 89 test cases covering all edge cases
 
 ## Installation
 
@@ -33,7 +33,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/neongreen/tomlsawyer"
+	toml "github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -129,6 +129,23 @@ if doc.Has("server.port") {
 }
 ```
 
+#### `Keys(path string) ([]string, error)`
+
+Returns the child keys of the table at the given path. Pass an empty string to get the top-level keys.
+
+```go
+doc, _ := toml.ParseString(`
+[servers]
+[servers.alpha]
+ip = "10.0.0.1"
+[servers.beta]
+ip = "10.0.0.2"
+`)
+
+keys, _ := doc.Keys("servers")
+fmt.Println(keys) // Output: [alpha beta]
+```
+
 ### Modifying Values
 
 #### `Set(path string, value interface{}) error`
@@ -197,7 +214,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/neongreen/tomlsawyer"
+	toml "github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -235,7 +252,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/neongreen/tomlsawyer"
+	toml "github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -281,7 +298,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/neongreen/tomlsawyer"
+	toml "github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -314,7 +331,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/neongreen/tomlsawyer"
+	toml "github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -354,7 +371,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/neongreen/tomlsawyer"
+	toml "github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -388,7 +405,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/neongreen/tomlsawyer"
+	toml "github.com/neongreen/tomlsawyer"
 )
 
 func main() {
@@ -435,8 +452,8 @@ l = "log"
 **Path Validation:**
 
 The library uses TOML-compliant path parsing that:
-- ✅ Accepts: `aliases."."`, `section."key with spaces"`, `config."key-with-dashes"`
-- ❌ Rejects: `aliases.` (trailing dot), `.aliases` (leading dot), `aliases..key` (double dot)
+- Accepts: `aliases."."`, `section."key with spaces"`, `config."key-with-dashes"`
+- Rejects: `aliases.` (trailing dot), `.aliases` (leading dot), `aliases..key` (double dot)
 
 
 
@@ -497,7 +514,7 @@ if b, ok := value.(bool); ok {
 
 ## Testing
 
-The library includes a comprehensive test suite with **39 test cases** covering:
+The library includes a comprehensive test suite with **89 test cases** covering:
 
 - Parsing various TOML formats
 - Getting and setting values
@@ -528,18 +545,18 @@ See [TEST_COVERAGE.md](TEST_COVERAGE.md) for detailed test coverage documentatio
 
 ## Comparison with Other Libraries
 
-| Feature | toml | go-toml/v2 | BurntSushi/toml |
-|---------|--------|------------|-----------------|
-| Comment preservation | ✅ | ❌ | ❌ |
-| Format preservation | ✅ | ❌ | ❌ |
-| Order preservation | ✅ | ❌ | ❌ |
-| Quote style preservation | ✅ | ❌ | ❌ |
-| Nestedness preservation | ✅ | ❌ | ❌ |
-| Marshal/Unmarshal | ❌ | ✅ | ✅ |
-| Struct tags | ❌ | ✅ | ✅ |
+| Feature | tomlsawyer | go-toml/v2 | BurntSushi/toml |
+|---------|------------|------------|-----------------|
+| Comment preservation | Yes | No | No |
+| Format preservation | Yes | No | No |
+| Order preservation | Yes | No | No |
+| Quote style preservation | Yes | No | No |
+| Nestedness preservation | Yes | No | No |
+| Marshal/Unmarshal | No | Yes | Yes |
+| Struct tags | No | Yes | Yes |
 | Use case | Config editing | Data serialization | Data serialization |
 
-**When to use toml:**
+**When to use tomlsawyer:**
 - You need to edit TOML files while preserving comments
 - You're building a configuration management tool
 - You need to maintain human-readable formatting (quote styles, key order, nestedness style)
@@ -553,7 +570,7 @@ See [TEST_COVERAGE.md](TEST_COVERAGE.md) for detailed test coverage documentatio
 
 ## Implementation Details
 
-`toml` is built on top of [creachadair/tomledit](https://github.com/creachadair/tomledit), which provides the low-level AST-based parsing and formatting capabilities. `toml` adds:
+`tomlsawyer` is built on top of [creachadair/tomledit](https://github.com/creachadair/tomledit), which provides the low-level AST-based parsing and formatting capabilities. `tomlsawyer` adds:
 
 - A higher-level, more ergonomic API
 - Automatic comment preservation when updating values

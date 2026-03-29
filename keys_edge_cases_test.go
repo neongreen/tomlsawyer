@@ -308,16 +308,20 @@ database.url = "postgres://localhost"
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	// "server" isn't a real section, it's a prefix for dotted keys.
-	// Keys() should still return nil since there's no [server] section.
 	keys, err := doc.Keys("server")
 	if err != nil {
 		t.Fatalf("Keys() error = %v", err)
 	}
 
-	// Dotted keys don't create sections, so Keys won't find them.
-	// This documents current behavior.
-	t.Logf("Keys(server) with dotted style = %v", keys)
+	if len(keys) != 2 {
+		t.Fatalf("Keys(server) = %v, want 2 keys", keys)
+	}
+	if !slices.Contains(keys, "host") {
+		t.Errorf("Keys(server) missing 'host', got %v", keys)
+	}
+	if !slices.Contains(keys, "port") {
+		t.Errorf("Keys(server) missing 'port', got %v", keys)
+	}
 }
 
 func TestKeysLargeSection(t *testing.T) {
@@ -339,6 +343,100 @@ func TestKeysLargeSection(t *testing.T) {
 
 	if len(keys) != 100 {
 		t.Errorf("Keys() returned %d keys, want 100", len(keys))
+	}
+}
+
+func TestHasSection(t *testing.T) {
+	input := `
+[server]
+host = "localhost"
+`
+	doc, err := ParseString(input)
+	if err != nil {
+		t.Fatalf("ParseString() error = %v", err)
+	}
+
+	if !doc.Has("server") {
+		t.Error("Has(server) = false, want true for table section")
+	}
+	if !doc.Has("server.host") {
+		t.Error("Has(server.host) = false, want true")
+	}
+}
+
+func TestHasDottedPrefix(t *testing.T) {
+	input := `server.host = "localhost"`
+
+	doc, err := ParseString(input)
+	if err != nil {
+		t.Fatalf("ParseString() error = %v", err)
+	}
+
+	if !doc.Has("server") {
+		t.Error("Has(server) = false, want true for dotted key prefix")
+	}
+	if !doc.Has("server.host") {
+		t.Error("Has(server.host) = false, want true")
+	}
+}
+
+func TestHasNonExistent(t *testing.T) {
+	input := `name = "test"`
+
+	doc, err := ParseString(input)
+	if err != nil {
+		t.Fatalf("ParseString() error = %v", err)
+	}
+
+	if doc.Has("nope") {
+		t.Error("Has(nope) = true, want false")
+	}
+	if doc.Has("name.child") {
+		t.Error("Has(name.child) = true, want false")
+	}
+}
+
+func TestTopLevelKeys(t *testing.T) {
+	input := `
+name = "test"
+server.host = "localhost"
+server.port = 8080
+
+[database]
+url = "postgres://localhost"
+
+[database.pool]
+size = 10
+`
+	doc, err := ParseString(input)
+	if err != nil {
+		t.Fatalf("ParseString() error = %v", err)
+	}
+
+	keys := doc.TopLevelKeys()
+	if len(keys) != 3 {
+		t.Fatalf("TopLevelKeys() = %v, want 3 keys", keys)
+	}
+	if !slices.Contains(keys, "name") {
+		t.Errorf("TopLevelKeys() missing 'name', got %v", keys)
+	}
+	if !slices.Contains(keys, "server") {
+		t.Errorf("TopLevelKeys() missing 'server', got %v", keys)
+	}
+	if !slices.Contains(keys, "database") {
+		t.Errorf("TopLevelKeys() missing 'database', got %v", keys)
+	}
+}
+
+func TestTopLevelKeysEmpty(t *testing.T) {
+	doc, err := ParseString("")
+	if err != nil {
+		t.Fatalf("ParseString() error = %v", err)
+	}
+
+	keys := doc.TopLevelKeys()
+	if len(keys) != 0 {
+		t.Errorf("TopLevelKeys() = %v, want empty", keys)
 	}
 }
 

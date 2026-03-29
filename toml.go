@@ -405,16 +405,154 @@ func (d *Document) Keys(path string) ([]string, error) {
 		}
 	}
 
+	// Scan dotted keys in the global section whose prefix matches keys
+	if d.doc.Global != nil {
+		for _, item := range d.doc.Global.Items {
+			if kv, ok := item.(*parser.KeyValue); ok {
+				if len(kv.Name) > len(keys) && prefixMatches(kv.Name, keys) {
+					child := kv.Name[len(keys)]
+					if !seen[child] {
+						seen[child] = true
+						result = append(result, child)
+					}
+				}
+			}
+		}
+	}
+
+	// Scan dotted keys in all sections whose combined heading+key prefix matches
+	for _, sec := range d.doc.Sections {
+		if sec.Heading == nil {
+			continue
+		}
+		hname := sec.Heading.Name
+		for _, item := range sec.Items {
+			kv, ok := item.(*parser.KeyValue)
+			if !ok {
+				continue
+			}
+			fullKey := append(parser.Key(nil), hname...)
+			fullKey = append(fullKey, kv.Name...)
+			if len(fullKey) > len(keys) && prefixMatches(fullKey, keys) {
+				child := fullKey[len(keys)]
+				if !seen[child] {
+					seen[child] = true
+					result = append(result, child)
+				}
+			}
+		}
+	}
+
 	if len(result) == 0 {
 		return nil, nil
 	}
 	return result, nil
 }
 
+// prefixMatches returns true if key starts with prefix.
+func prefixMatches(key, prefix parser.Key) bool {
+	if len(key) < len(prefix) {
+		return false
+	}
+	for i, p := range prefix {
+		if key[i] != p {
+			return false
+		}
+	}
+	return true
+}
+
 // Has returns true if the given path exists in the document.
+// This includes key-value entries, table sections, and dotted key prefixes.
 func (d *Document) Has(path string) bool {
 	val, _ := d.Get(path)
-	return val != nil
+	if val != nil {
+		return true
+	}
+
+	keys, err := parseKeyPath(path)
+	if err != nil {
+		return false
+	}
+
+	// Check if a table section exists with this name
+	if transform.FindTable(d.doc, keys...) != nil {
+		return true
+	}
+
+	// Check if any section heading starts with the given keys (implicit parents)
+	for _, sec := range d.doc.Sections {
+		if sec.Heading == nil {
+			continue
+		}
+		if len(sec.Heading.Name) >= len(keys) && prefixMatches(sec.Heading.Name, keys) {
+			return true
+		}
+	}
+
+	// Check if any dotted key in any section starts with the given keys
+	if d.doc.Global != nil {
+		for _, item := range d.doc.Global.Items {
+			if kv, ok := item.(*parser.KeyValue); ok {
+				if len(kv.Name) >= len(keys) && prefixMatches(kv.Name, keys) {
+					return true
+				}
+			}
+		}
+	}
+	for _, sec := range d.doc.Sections {
+		if sec.Heading == nil {
+			continue
+		}
+		for _, item := range sec.Items {
+			kv, ok := item.(*parser.KeyValue)
+			if !ok {
+				continue
+			}
+			fullKey := append(parser.Key(nil), sec.Heading.Name...)
+			fullKey = append(fullKey, kv.Name...)
+			if len(fullKey) >= len(keys) && prefixMatches(fullKey, keys) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// TopLevelKeys returns all top-level key names in the document, deduplicated
+// and in document order. This includes the first element of dotted key names
+// from the global section and the first element of section heading names.
+func (d *Document) TopLevelKeys() []string {
+	var result []string
+	seen := make(map[string]bool)
+
+	// Keys from the global section
+	if d.doc.Global != nil {
+		for _, item := range d.doc.Global.Items {
+			if kv, ok := item.(*parser.KeyValue); ok && len(kv.Name) > 0 {
+				name := kv.Name[0]
+				if !seen[name] {
+					seen[name] = true
+					result = append(result, name)
+				}
+			}
+		}
+	}
+
+	// Top-level section heading names (first element only)
+	for _, sec := range d.doc.Sections {
+		if sec.Heading == nil || len(sec.Heading.Name) == 0 {
+			continue
+		}
+		name := sec.Heading.Name[0]
+		if !seen[name] {
+			seen[name] = true
+			result = append(result, name)
+		}
+	}
+
+	return result
 }
 
 // String serializes the document back to TOML format, preserving all
