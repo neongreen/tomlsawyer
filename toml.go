@@ -59,6 +59,15 @@ import (
 // rather than a key-value entry.
 var ErrNotValue = errors.New("path refers to a table section, not a value")
 
+// KeyValue represents an ordered key-value pair for use in inline tables.
+// Pass []KeyValue to [Document.Set] or [FormatValueToString] to control
+// the output order of inline table keys. For unordered input, map[string]any
+// is also accepted (keys will be sorted alphabetically).
+type KeyValue struct {
+	Key   string
+	Value any
+}
+
 // Document represents a parsed TOML document with preserved structure,
 // including comments, formatting, and declaration order.
 type Document struct {
@@ -930,6 +939,17 @@ func FormatValueToString(v any) (string, error) {
 			parts[i] = strconv.Itoa(item)
 		}
 		return "[" + strings.Join(parts, ", ") + "]", nil
+
+	case []KeyValue:
+		parts := make([]string, 0, len(val))
+		for _, kv := range val {
+			vs, err := FormatValueToString(kv.Value)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, formatKeySegment(kv.Key)+" = "+vs)
+		}
+		return "{" + strings.Join(parts, ", ") + "}", nil
 
 	case map[string]any:
 		keys := make([]string, 0, len(val))

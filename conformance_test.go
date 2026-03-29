@@ -232,3 +232,61 @@ func TestConformanceEmptyInlineTable(t *testing.T) {
 	if !isMap { t.Fatalf("type = %T", val) }
 	if len(tbl) != 0 { t.Errorf("len = %d", len(tbl)) }
 }
+
+func TestSetOrderedKeyValue(t *testing.T) {
+	doc, _ := ParseString("")
+	doc.Set("person", []KeyValue{
+		{Key: "name", Value: "Alice"},
+		{Key: "age", Value: 30},
+		{Key: "email", Value: "alice@example.com"},
+	})
+	output := doc.String()
+	// Order must be preserved: name, age, email (not sorted)
+	wantGolden(t, output, "person = {name = \"Alice\", age = 30, email = \"alice@example.com\"}\n")
+}
+
+func TestSetOrderedKeyValueRoundTrip(t *testing.T) {
+	doc, _ := ParseString("")
+	doc.Set("t", []KeyValue{
+		{Key: "z", Value: 1},
+		{Key: "a", Value: 2},
+		{Key: "m", Value: 3},
+	})
+	output := doc.String()
+	doc2, err := ParseString(output)
+	if err != nil {
+		t.Fatalf("invalid TOML: %v", err)
+	}
+	val, ok, _ := doc2.Get("t")
+	if !ok {
+		t.Fatal("not found")
+	}
+	tbl, isMap := val.(map[string]any)
+	if !isMap {
+		t.Fatalf("type = %T", val)
+	}
+	if tbl["z"] != int64(1) || tbl["a"] != int64(2) || tbl["m"] != int64(3) {
+		t.Errorf("round-trip values wrong: %v", tbl)
+	}
+}
+
+func TestSetOrderedKeyValueWithSpecialKeys(t *testing.T) {
+	doc, _ := ParseString("")
+	doc.Set("t", []KeyValue{
+		{Key: "key with spaces", Value: "a"},
+		{Key: "key.with.dots", Value: "b"},
+	})
+	output := doc.String()
+	doc2, err := ParseString(output)
+	if err != nil {
+		t.Fatalf("invalid TOML: %v\noutput:\n%s", err, output)
+	}
+	v1, ok1, _ := doc2.Get(`t."key with spaces"`)
+	v2, ok2, _ := doc2.Get(`t."key.with.dots"`)
+	if !ok1 || v1 != "a" {
+		t.Errorf("key with spaces = %v", v1)
+	}
+	if !ok2 || v2 != "b" {
+		t.Errorf("key.with.dots = %v", v2)
+	}
+}
