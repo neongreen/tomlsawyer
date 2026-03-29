@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move() method (rename/move sections and keys, like Unix mv)
 - ApplyMap/ReplaceMap for bulk operations
 - WriteFile helper
-- Full TOML v1.0.0 support
+- Broad TOML v1.0.0 support
 - Golden tests with go-cmp diffs
 - Key expressibility tests
 - Testable Go doc examples

@@ -15,8 +15,8 @@ A Go library for parsing, modifying, and serializing TOML documents while **pres
 - **Dotted Path Support**: Access nested values using dotted paths (e.g., `server.database.host`)
 - **Quoted Key Support**: Full support for TOML quoted keys with special characters (e.g., `aliases."."`, `section."key with spaces"`)
 - **Path Validation**: Validates paths according to TOML specification, rejecting invalid paths like `aliases.` (trailing dot)
-- **Full TOML v1.0.0 Support**: Supports all TOML features including arrays, inline tables, and multiline strings
-- **Extensively Tested**: Comprehensive test suite with 89 test cases covering all edge cases
+- **Broad TOML v1.0.0 Support**: Supports most TOML features including arrays, inline tables, and multiline strings (see [Limitations](#limitations) for details)
+- **Extensively Tested**: Comprehensive test suite covering all edge cases
 
 ## Installation
 
@@ -144,7 +144,7 @@ if doc.Has("server.port") {
 
 #### `Keys(path string) ([]string, error)`
 
-Returns the child keys of the table at the given path. Pass an empty string to get the top-level keys.
+Returns the child keys of the table at the given path. Use `TopLevelKeys()` to get top-level keys.
 
 ```go
 doc, _ := toml.ParseString(`
@@ -527,7 +527,7 @@ if b, ok := value.(bool); ok {
 
 ## Testing
 
-The library includes a comprehensive test suite with **89 test cases** covering:
+The library includes a comprehensive test suite covering:
 
 - Parsing various TOML formats
 - Getting and setting values
@@ -553,8 +553,6 @@ Run tests with:
 ```bash
 go test -v ./...
 ```
-
-See [TEST_COVERAGE.md](TEST_COVERAGE.md) for detailed test coverage documentation.
 
 ## Comparison with Other Libraries
 
@@ -595,6 +593,8 @@ See [TEST_COVERAGE.md](TEST_COVERAGE.md) for detailed test coverage documentatio
 - The library works at the AST level, not the semantic level. It preserves the syntactic structure but doesn't validate semantic constraints (like duplicate keys).
 - When creating new values programmatically, they're added without comments unless you modify the underlying AST.
 - Marshal/unmarshal to Go structs is not supported (use go-toml/v2 or BurntSushi/toml for that).
+- Arrays of tables (`[[name]]`) are preserved during round-trip, but individual entries are not addressable via the Get/Set API.
+- `ApplyMap`/`ReplaceMap` don't support arrays of tables.
 
 ## License
 

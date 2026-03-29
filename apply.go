@@ -41,7 +41,11 @@ func WriteFile(path string, values map[string]any) error {
 		return fmt.Errorf("failed to create directory for %s: %w", path, err)
 	}
 
-	if err := os.WriteFile(path, doc.Bytes(), 0o644); err != nil {
+	mode := os.FileMode(0o644)
+	if info, err := os.Stat(path); err == nil {
+		mode = info.Mode()
+	}
+	if err := os.WriteFile(path, doc.Bytes(), mode); err != nil {
 		return fmt.Errorf("failed to write file %s: %w", path, err)
 	}
 

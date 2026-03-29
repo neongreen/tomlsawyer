@@ -19,7 +19,7 @@
 //
 // Example usage:
 //
-//	doc, err := tomlcp.Parse([]byte(`
+//	doc, err := tomlsawyer.Parse([]byte(`
 //	  # This is a comment
 //	  [server]
 //	  host = "localhost"
@@ -42,6 +42,7 @@ package tomlsawyer
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -107,6 +108,29 @@ func (d *Document) Set(path string, value any) error {
 	keys, err := parseKeyPath(path)
 	if err != nil {
 		return err
+	}
+
+	// Check if any prefix of the path is a scalar value (can't nest under scalars)
+	if len(keys) > 1 {
+		for i := 1; i < len(keys); i++ {
+			prefix := keys[:i]
+			entry := d.doc.First(prefix...)
+			if entry != nil && entry.KeyValue != nil {
+				val, err := parseValue(entry.Value)
+				if err == nil {
+					if _, isMap := val.(map[string]any); !isMap {
+						return fmt.Errorf("cannot set %q: %q is a scalar value", path, prefix.String())
+					}
+				}
+			}
+		}
+	}
+
+	// Check if the exact path is a table section and we're setting a non-table value
+	if section := transform.FindTable(d.doc, keys...); section != nil {
+		if _, isMap := value.(map[string]any); !isMap {
+			return fmt.Errorf("cannot set scalar at %q: path is a table section", path)
+		}
 	}
 
 	// Check if the key already exists
@@ -343,6 +367,11 @@ func (d *Document) Move(oldPath, newPath string) error {
 	newKeys, err := parseKeyPath(newPath)
 	if err != nil {
 		return err
+	}
+
+	// Check if destination already exists
+	if existing := d.doc.First(newKeys...); existing != nil {
+		return fmt.Errorf("cannot move to %q: destination already exists", newPath)
 	}
 
 	entry := d.doc.First(oldKeys...)
@@ -762,13 +791,34 @@ func parseValue(v parser.Value) (any, error) {
 			return false, nil
 		}
 
-		// Try integer
-		if i, err := strconv.ParseInt(text, 10, 64); err == nil {
+		// Try integer (strip underscores, detect base prefix)
+		cleanText := strings.ReplaceAll(text, "_", "")
+		base := 10
+		numStr := cleanText
+		if strings.HasPrefix(cleanText, "0x") || strings.HasPrefix(cleanText, "0X") {
+			base = 16
+			numStr = cleanText[2:]
+		} else if strings.HasPrefix(cleanText, "0o") || strings.HasPrefix(cleanText, "0O") {
+			base = 8
+			numStr = cleanText[2:]
+		} else if strings.HasPrefix(cleanText, "0b") || strings.HasPrefix(cleanText, "0B") {
+			base = 2
+			numStr = cleanText[2:]
+		}
+		if i, err := strconv.ParseInt(numStr, base, 64); err == nil {
 			return i, nil
 		}
 
-		// Try float
-		if f, err := strconv.ParseFloat(text, 64); err == nil {
+		// Try float (strip underscores, handle special values)
+		switch cleanText {
+		case "inf", "+inf":
+			return math.Inf(1), nil
+		case "-inf":
+			return math.Inf(-1), nil
+		case "nan", "+nan", "-nan":
+			return math.NaN(), nil
+		}
+		if f, err := strconv.ParseFloat(cleanText, 64); err == nil {
 			return f, nil
 		}
 
@@ -853,13 +903,18 @@ func FormatValueToString(v any) (string, error) {
 		return "[" + strings.Join(parts, ", ") + "]", nil
 
 	case map[string]any:
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
 		parts := make([]string, 0, len(val))
-		for k, v := range val {
-			vs, err := FormatValueToString(v)
+		for _, k := range keys {
+			vs, err := FormatValueToString(val[k])
 			if err != nil {
 				return "", err
 			}
-			parts = append(parts, k+" = "+vs)
+			parts = append(parts, formatKeySegment(k)+" = "+vs)
 		}
 		return "{" + strings.Join(parts, ", ") + "}", nil
 
@@ -881,14 +936,39 @@ func quoteString(s string) string {
 
 // unquoteString removes quotes and unescapes a string value.
 func unquoteString(s string) string {
-	// Remove surrounding quotes
-	if len(s) >= 2 {
-		if (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'') {
-			s = s[1 : len(s)-1]
+	// Multiline literal string: '''...'''
+	if strings.HasPrefix(s, "'''") && strings.HasSuffix(s, "'''") && len(s) >= 6 {
+		inner := s[3 : len(s)-3]
+		if len(inner) > 0 && inner[0] == '\n' {
+			inner = inner[1:]
 		}
+		return inner
 	}
 
-	// Unescape common sequences (order matters - do \\ last to avoid double unescaping)
+	// Literal string: '...' — no escape processing
+	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
+		return s[1 : len(s)-1]
+	}
+
+	// Multiline basic string: """..."""
+	if strings.HasPrefix(s, `"""`) && strings.HasSuffix(s, `"""`) && len(s) >= 6 {
+		inner := s[3 : len(s)-3]
+		if len(inner) > 0 && inner[0] == '\n' {
+			inner = inner[1:]
+		}
+		return unescapeBasicString(inner)
+	}
+
+	// Basic string: "..."
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		return unescapeBasicString(s[1 : len(s)-1])
+	}
+
+	return s
+}
+
+// unescapeBasicString processes escape sequences in a TOML basic string.
+func unescapeBasicString(s string) string {
 	result := make([]byte, 0, len(s))
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\\' && i+1 < len(s) {
@@ -918,6 +998,5 @@ func unquoteString(s string) string {
 			result = append(result, s[i])
 		}
 	}
-
 	return string(result)
 }

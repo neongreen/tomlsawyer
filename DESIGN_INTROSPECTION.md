@@ -4,7 +4,7 @@
 
 tomlsawyer already preserves structure during edits, but provides no way for callers to _query_ that structure. `Get("server.host")` returns `"localhost"` — but was it defined as a dotted key `server.host = "localhost"` in the global section, or as `host = "localhost"` under a `[server]` heading? Is a table value `{ x = 1 }` (inline) or `[foo]\nx = 1` (section)? What quote style does a string use? Are there comments attached?
 
-This matters for tools that need to make format-aware decisions: linters, migration scripts, config diffing tools, and the `Rename` operation proposed below.
+This matters for tools that need to make format-aware decisions: linters, migration scripts, config diffing tools, and the `Move` operation (now implemented).
 
 ## What tomledit already provides
 
@@ -298,45 +298,14 @@ fmt.Println(info.Raw)        // "0x1F"
 fmt.Println(info.ValueType)  // ValueInteger
 ```
 
-## Rename Operation
+## Move Operation (implemented)
 
-### Motivation
+The `Move` operation has been implemented as `Document.Move(oldPath, newPath string) error`. It renames/moves keys and sections while preserving structural representation, comments, and position. Section cascading (updating child sections like `[foo.bar.baz]` when moving `foo.bar` to `foo.qux`) is handled automatically.
 
-Renaming a key should preserve its structural representation. If `[foo.bar]` is renamed to `[foo.qux]`, the result should be `[foo.qux]`, not `[foo]\nqux = ...` or a flattened dotted key. Similarly, renaming a dotted key should keep it dotted, and renaming within an inline table should keep it inline.
-
-### What tomledit already provides
-
-`transform.Rename` does exactly this at the section/key level — it modifies the heading name or key name in-place without moving anything. However, it only renames exact key matches. If you rename `[foo.bar]` to `[foo.qux]`, any sub-keys like `[foo.bar.baz]` are not updated.
-
-### Proposed API
+### Examples
 
 ```go
-// Rename renames a key from oldPath to newPath, preserving the key's
-// section style, comments, position, and all other structural properties.
-//
-// For section headings, all sub-sections that have oldPath as a prefix
-// are also renamed. E.g. renaming "foo.bar" to "foo.qux" also renames
-// [foo.bar.baz] to [foo.qux.baz].
-//
-// Rename does not move the key — it only changes its name. The key stays
-// in the same position in the document.
-//
-// Returns an error if oldPath doesn't exist.
-func (d *Document) Rename(oldPath, newPath string) error
-```
-
-### Design considerations for Rename
-
-**Section cascade**: When renaming a section like `[foo.bar]`, all child sections (`[foo.bar.x]`, `[foo.bar.x.y]`, etc.) must have their headings updated too. tomledit's `transform.Rename` only handles a single key, so we'd need to iterate through `doc.Sections` and update any heading where the old key is a prefix.
-
-**Dotted key handling**: If `server.host = "x"` exists as a dotted key in the global section and we rename `server` to `app`, the key should become `app.host = "x"`. This means replacing a prefix in `KeyValue.Name`.
-
-**Cross-style rename**: What happens when renaming `server.host` (dotted key) to `database.url`? The section prefix changes. We should keep the same structural style: if it was dotted, it stays dotted. If it was under a section, we'd need to move it to a different section (or create one). This is actually a _move_ operation, not just a rename. For the initial implementation, `Rename` could be restricted to same-depth renames where only the final key segment changes, or renames within the same section.
-
-### Rename examples
-
-```go
-// Renaming a section heading
+// Moving a section heading
 doc, _ := toml.ParseString(`
 [foo.bar]
 x = 1
@@ -344,7 +313,7 @@ x = 1
 [foo.bar.baz]
 y = 2
 `)
-doc.Rename("foo.bar", "foo.qux")
+doc.Move("foo.bar", "foo.qux")
 // Result:
 // [foo.qux]
 // x = 1
@@ -352,24 +321,24 @@ doc.Rename("foo.bar", "foo.qux")
 // [foo.qux.baz]
 // y = 2
 
-// Renaming a simple key under a section
+// Moving a simple key under a section
 doc2, _ := toml.ParseString(`
 [server]
 # Bind address
 host = "localhost"  # change this in production
 `)
-doc2.Rename("server.host", "server.bind_address")
+doc2.Move("server.host", "server.bind_address")
 // Result:
 // [server]
 // # Bind address
 // bind_address = "localhost"  # change this in production
 
-// Renaming a dotted key
+// Moving a dotted key
 doc3, _ := toml.ParseString(`
 server.host = "localhost"
 server.port = 8080
 `)
-doc3.Rename("server.host", "server.bind")
+doc3.Move("server.host", "server.bind")
 // Result:
 // server.bind = "localhost"
 // server.port = 8080
@@ -412,7 +381,7 @@ The return type is a value struct (`KeyInfo`), not a pointer, following gjson's 
 
 The scanner token type is accessible through `Token.Type` on the `parser.Token` concrete type, which is the `Datum` inside `parser.Value`. tomlsawyer already does the type switch on `v.X.(parser.Token)` in `parseValue` — `Inspect` would do the same switch but extract additional metadata.
 
-`Rename` would be implemented by:
+`Move` is implemented by:
 
 1. Parse both paths
 2. Find the entry via `doc.First()`
@@ -425,7 +394,7 @@ The scanner token type is accessible through `Token.Type` on the `parser.Token` 
 
 2. **Should `KeyInfo` include the raw text of the key name itself?** E.g., whether the key was written as `"host"` (quoted) vs `host` (bare). The current `parser.Key` normalizes to plain strings, losing this info. We could add a `RawKey string` field if there's demand, but this would require reaching into the scanner layer.
 
-3. **Should `Rename` support cross-section moves?** E.g., renaming `server.host` to `database.url` where the section prefix changes. This is complex and arguably a different operation (move). Initial implementation could return an error for cross-section renames and offer a separate `Move` method later.
+3. **Cross-section moves**: `Move` now handles cross-section moves (e.g., `server.host` to `database.url`).
 
 4. **Should there be an `InspectAll` or `Scan` that visits every key with its `KeyInfo`?** This would be useful for linting/analysis tools. The underlying `doc.Scan()` already supports this pattern.
 
