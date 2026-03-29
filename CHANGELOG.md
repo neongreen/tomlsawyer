@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comment-preserving TOML parsing and serialization
 - Get/Set/Delete/Has API
 - Keys() method for discovering table children (fixes neongreen/mono#337)
+- Keys() works with dotted key prefixes
+- Has() works for sections and dotted key prefixes
+- TopLevelKeys() method
+- Rename() method
 - ApplyMap/ReplaceMap for bulk operations
 - WriteFile helper
 - Full TOML v1.0.0 support
+- Golden tests with go-cmp diffs
+- Key expressibility tests
+- Testable Go doc examples

@@ -63,8 +63,14 @@ func ParseString(input string) (*Document, error) {
 	return Parse([]byte(input))
 }
 
-// Get retrieves a value at the given dotted path (e.g., "server.host").
+// Get retrieves a value at the given path.
 // Returns nil if the path doesn't exist.
+//
+// The path uses TOML dotted-key syntax: segments are separated by dots.
+// Use quoted segments for keys containing special characters:
+//
+//	doc.Get("server.host")       // key "host" under section "server"
+//	doc.Get(`aliases."."`)       // key "." under section "aliases"
 func (d *Document) Get(path string) (any, error) {
 	keys, err := parseKeyPath(path)
 	if err != nil {
@@ -83,9 +89,11 @@ func (d *Document) Get(path string) (any, error) {
 	return parseValue(entry.Value)
 }
 
-// Set sets a value at the given dotted path, creating intermediate sections
+// Set sets a value at the given path, creating intermediate sections
 // if necessary. The value can be a string, int, float64, bool, or []interface{}.
 // This method preserves the original style (dotted keys vs sections, quote styles).
+//
+// Path syntax is the same as [Document.Get].
 func (d *Document) Set(path string, value any) error {
 	keys, err := parseKeyPath(path)
 	if err != nil {
@@ -306,8 +314,57 @@ func copyKey(key parser.Key) parser.Key {
 	return out
 }
 
-// Delete removes a key at the given dotted path.
+// Rename renames a section or key at the given dotted path. Both oldPath and
+// newPath use the same path syntax as Get/Set/Delete. For sections, child
+// sections are also renamed. Comments, formatting, and position are preserved.
+func (d *Document) Rename(oldPath, newPath string) error {
+	oldKeys, err := parseKeyPath(oldPath)
+	if err != nil {
+		return err
+	}
+	newKeys, err := parseKeyPath(newPath)
+	if err != nil {
+		return err
+	}
+
+	entry := d.doc.First(oldKeys...)
+	if entry == nil {
+		return fmt.Errorf("path %q not found", oldPath)
+	}
+
+	if entry.IsSection() {
+		entry.Section.Heading.Name = copyKey(newKeys)
+
+		for _, sec := range d.doc.Sections {
+			if sec.Heading == nil || sec == entry.Section {
+				continue
+			}
+			if oldKeys.IsPrefixOf(sec.Heading.Name) {
+				tail := make(parser.Key, len(sec.Heading.Name)-len(oldKeys))
+				copy(tail, sec.Heading.Name[len(oldKeys):])
+				sec.Heading.Name = append(copyKey(newKeys), tail...)
+			}
+		}
+		return nil
+	}
+
+	if entry.IsMapping() {
+		oldParent := oldKeys[:len(oldKeys)-1]
+		newParent := newKeys[:len(newKeys)-1]
+		if !parser.Key(oldParent).Equals(newParent) {
+			return fmt.Errorf("cross-section key rename not supported, use Get/Set/Delete")
+		}
+		entry.KeyValue.Name[len(entry.KeyValue.Name)-1] = newKeys[len(newKeys)-1]
+		return nil
+	}
+
+	return fmt.Errorf("path %q not found", oldPath)
+}
+
+// Delete removes a key at the given path.
 // Returns nil if the path doesn't exist.
+//
+// Path syntax is the same as [Document.Get].
 func (d *Document) Delete(path string) error {
 	keys, err := parseKeyPath(path)
 	if err != nil {
@@ -323,19 +380,16 @@ func (d *Document) Delete(path string) error {
 	return nil
 }
 
-// Keys returns the child key names under the given dotted path.
+// Keys returns the child key names under the given path.
 // For a table section like [foo], it returns the keys defined in that section.
 // For an inline table value, it returns the keys of that inline table.
 // Returns nil if the path doesn't exist or has no children.
 //
-// Example:
+// The returned names are raw key names, not paths. For example,
+// Keys("aliases") might return [".", "..", "l"] where "." is a literal
+// key name containing a dot.
 //
-//	doc, _ := Parse([]byte(`
-//	  [foo]
-//	  a = { id = "123" }
-//	  b = { id = "456" }
-//	`))
-//	keys, _ := doc.Keys("foo") // returns ["a", "b"]
+// Path syntax is the same as [Document.Get].
 func (d *Document) Keys(path string) ([]string, error) {
 	keys, err := parseKeyPath(path)
 	if err != nil {
@@ -464,6 +518,8 @@ func prefixMatches(key, prefix parser.Key) bool {
 
 // Has returns true if the given path exists in the document.
 // This includes key-value entries, table sections, and dotted key prefixes.
+//
+// Path syntax is the same as [Document.Get].
 func (d *Document) Has(path string) bool {
 	val, _ := d.Get(path)
 	if val != nil {
@@ -521,8 +577,7 @@ func (d *Document) Has(path string) bool {
 }
 
 // TopLevelKeys returns all top-level key names in the document, deduplicated
-// and in document order. This includes the first element of dotted key names
-// from the global section and the first element of section heading names.
+// and in document order. The returned strings are raw key names (not paths).
 func (d *Document) TopLevelKeys() []string {
 	var result []string
 	seen := make(map[string]bool)
