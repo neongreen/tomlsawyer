@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -88,11 +87,11 @@ func TestMalformedTOMLDoesntCorrupt(t *testing.T) {
 // TestArrayOfInlineTables tests preservation of array-of-inline-tables formatting
 func TestArrayOfInlineTables(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		modifyKey     string
-		modifyValue   any
-		shouldContain []string
+		name        string
+		input       string
+		modifyKey   string
+		modifyValue any
+		want        string
 	}{
 		{
 			name: "compact array of inline tables",
@@ -104,12 +103,7 @@ products = [
 `,
 			modifyKey:   "version",
 			modifyValue: 1,
-			shouldContain: []string{
-				"products = [",
-				// Note: The formatter normalizes inline table spacing
-				`name =   "Hammer"`,
-				`name =   "Nail"`,
-			},
+			want: "products = [\n  {  name =   \"Hammer\",   sku =   738594937  },\n  {  name =   \"Nail\",   sku =   284758393,   color =   \"gray\"  },\n]\nversion = 1\n",
 		},
 		{
 			name: "array of inline tables with trailing comma",
@@ -121,18 +115,14 @@ items = [
 `,
 			modifyKey:   "count",
 			modifyValue: 2,
-			shouldContain: []string{
-				"items = [",
-			},
+			want:        "items = [\n  {  x =   1,   y =   2  },\n  {  x =   3,   y =   4  },\n]\ncount = 2\n",
 		},
 		{
 			name:        "single-line array of inline tables",
 			input:       `points = [{ x = 1, y = 2 }, { x = 3, y = 4 }]`,
 			modifyKey:   "version",
 			modifyValue: 1,
-			shouldContain: []string{
-				"points = [",
-			},
+			want:        "points = [\n  {  x =   1,   y =   2  },\n  {  x =   3,   y =   4  },\n]\nversion = 1\n",
 		},
 		{
 			name: "nested inline tables in array",
@@ -144,9 +134,7 @@ data = [
 `,
 			modifyKey:   "version",
 			modifyValue: 1,
-			shouldContain: []string{
-				"data = [",
-			},
+			want:        "data = [\n  {  id =   1,   meta =   {  author =   \"Alice\",   date =   \"2024\"  }  },\n  {  id =   2,   meta =   {  author =   \"Bob\",   date =   \"2024\"  }  },\n]\nversion = 1\n",
 		},
 	}
 
@@ -157,20 +145,13 @@ data = [
 				t.Fatalf("ParseString() error = %v", err)
 			}
 
-			// Make a modification to a different key
 			err = doc.Set(tt.modifyKey, tt.modifyValue)
 			if err != nil {
 				t.Errorf("Set() error = %v", err)
 			}
 
 			output := doc.String()
-			t.Logf("Output:\n%s", output)
-
-			for _, expected := range tt.shouldContain {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Expected to find %q in output", expected)
-				}
-			}
+			wantGolden(t, output, tt.want)
 
 			// Verify it's still valid TOML
 			_, err = ParseString(output)
@@ -184,11 +165,11 @@ data = [
 // TestArrayOfTables tests the [[array]] syntax for array of tables
 func TestArrayOfTablesPreservation(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		modifyKey     string
-		modifyValue   any
-		shouldContain []string
+		name        string
+		input       string
+		modifyKey   string
+		modifyValue any
+		want        string
 	}{
 		{
 			name: "simple array of tables",
@@ -204,11 +185,7 @@ color = "gray"
 `,
 			modifyKey:   "version",
 			modifyValue: 1,
-			shouldContain: []string{
-				"[[products]]",
-				`name = "Hammer"`,
-				`name = "Nail"`,
-			},
+			want:        "version = 1\n\n[[products]]\nname = \"Hammer\"\nsku = 738594937\n\n[[products]]\nname = \"Nail\"\nsku = 284758393\ncolor = \"gray\"\n",
 		},
 		{
 			name: "nested array of tables",
@@ -230,10 +207,7 @@ name = "plantain"
 `,
 			modifyKey:   "count",
 			modifyValue: 3,
-			shouldContain: []string{
-				"[[fruits]]",
-				"[[fruits.varieties]]",
-			},
+			want:        "count = 3\n\n[[fruits]]\nname = \"apple\"\n\n[[fruits.varieties]]\nname = \"red delicious\"\n\n[[fruits.varieties]]\nname = \"granny smith\"\n\n[[fruits]]\nname = \"banana\"\n\n[[fruits.varieties]]\nname = \"plantain\"\n",
 		},
 		{
 			name: "array of tables with comments",
@@ -251,12 +225,7 @@ sku = 284758393
 `,
 			modifyKey:   "version",
 			modifyValue: 1,
-			shouldContain: []string{
-				"# Products",
-				"# First product",
-				"# Second product",
-				"[[products]]",
-			},
+			want:        "version = 1\n\n# Products\n[[products]]\n\n# First product\nname = \"Hammer\"\nsku = 738594937\n\n# Second product\n[[products]]\nname = \"Nail\"\nsku = 284758393\n",
 		},
 	}
 
@@ -267,20 +236,13 @@ sku = 284758393
 				t.Fatalf("ParseString() error = %v", err)
 			}
 
-			// Make a modification
 			err = doc.Set(tt.modifyKey, tt.modifyValue)
 			if err != nil {
 				t.Errorf("Set() error = %v", err)
 			}
 
 			output := doc.String()
-			t.Logf("Output:\n%s", output)
-
-			for _, expected := range tt.shouldContain {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Expected to find %q in output", expected)
-				}
-			}
+			wantGolden(t, output, tt.want)
 
 			// Verify it's still valid TOML
 			_, err = ParseString(output)
@@ -336,11 +298,12 @@ sku = 284758393
 // TestQuotedKeys tests preservation of quoted keys
 func TestQuotedKeys(t *testing.T) {
 	tests := []struct {
-		name          string
-		input         string
-		modifyKey     string
-		modifyValue   any
-		shouldContain []string
+		name        string
+		input       string
+		modifyKey   string
+		modifyValue any
+		setErrors   bool
+		want        string
 	}{
 		{
 			name: "simple quoted key",
@@ -350,9 +313,7 @@ normal_key = "value2"
 `,
 			modifyKey:   "normal_key",
 			modifyValue: "modified",
-			shouldContain: []string{
-				`"key with spaces"`,
-			},
+			want:        "\"key with spaces\" = \"value\"\nnormal_key = \"modified\"\n",
 		},
 		{
 			name: "quoted key in section header",
@@ -362,9 +323,8 @@ setting = "value"
 `,
 			modifyKey:   "foo.bar:baz.qux.setting",
 			modifyValue: "modified",
-			shouldContain: []string{
-				`[foo."bar:baz".qux]`,
-			},
+			setErrors:   true,
+			want:        "[foo.\"bar:baz\".qux]\nsetting = \"value\"\n",
 		},
 		{
 			name: "multiple quoted keys",
@@ -375,10 +335,8 @@ setting = "value"
 `,
 			modifyKey:   "127.0.0.1.port:number",
 			modifyValue: 9090,
-			shouldContain: []string{
-				`["127.0.0.1"]`,
-				`"port:number"`,
-			},
+			setErrors:   true,
+			want:        "[\"127.0.0.1\"]\n\"port:number\" = 8080\nhost-name = \"localhost\"\n",
 		},
 		{
 			name: "quoted keys with special characters",
@@ -390,14 +348,7 @@ setting = "value"
 `,
 			modifyKey:   "other",
 			modifyValue: 5,
-			shouldContain: []string{
-				`"key.with.dots"`,
-				// Note: key-with-dashes doesn't need quotes (dashes are valid in bare keys)
-				// so the parser normalizes it to unquoted form
-				`key-with-dashes`,
-				`"key:with:colons"`,
-				`"key with spaces"`,
-			},
+			want:        "\"key.with.dots\" = 1\nkey-with-dashes = 2\n\"key:with:colons\" = 3\n\"key with spaces\" = 4\nother = 5\n",
 		},
 		{
 			name: "quoted dotted keys",
@@ -407,10 +358,7 @@ setting = "value"
 `,
 			modifyKey:   "other",
 			modifyValue: "test",
-			shouldContain: []string{
-				`"a.b"."c.d"`,
-				`"x.y".z`,
-			},
+			want:        "\"a.b\".\"c.d\" = \"value\"\n\"x.y\".z = \"value2\"\nother = \"test\"\n",
 		},
 	}
 
@@ -421,21 +369,17 @@ setting = "value"
 				t.Fatalf("ParseString() error = %v", err)
 			}
 
-			// Make a modification
 			err = doc.Set(tt.modifyKey, tt.modifyValue)
-			if err != nil {
-				t.Logf("Set() error (may be expected if key path is complex): %v", err)
-				// Don't fail - some quoted key paths may not be settable via simple dotted paths
+			if tt.setErrors {
+				if err != nil {
+					t.Logf("Set() error (expected for complex key path): %v", err)
+				}
+			} else if err != nil {
+				t.Errorf("Set() error = %v", err)
 			}
 
 			output := doc.String()
-			t.Logf("Output:\n%s", output)
-
-			for _, expected := range tt.shouldContain {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Expected to find %q in output", expected)
-				}
-			}
+			wantGolden(t, output, tt.want)
 
 			// Verify it's still valid TOML
 			_, err = ParseString(output)

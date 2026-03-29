@@ -1,7 +1,6 @@
 package toml
 
 import (
-	"strings"
 	"testing"
 )
 
@@ -179,48 +178,48 @@ enabled = false
 // TestSet tests setting values in the document
 func TestSet(t *testing.T) {
 	tests := []struct {
-		name     string
-		initial  string
-		path     string
-		value    any
-		expected string
+		name       string
+		initial    string
+		path       string
+		value      any
+		wantOutput string
 	}{
 		{
-			name:     "set new top-level string",
-			initial:  `# Config`,
-			path:     "name",
-			value:    "test",
-			expected: "name",
+			name:    "set new top-level string",
+			initial: `# Config`,
+			path:    "name",
+			value:   "test",
+			wantOutput: "name = \"test\"\n\n# Config\n",
 		},
 		{
-			name:     "set new integer",
-			initial:  ``,
-			path:     "count",
-			value:    42,
-			expected: "count",
+			name:       "set new integer",
+			initial:    ``,
+			path:       "count",
+			value:      42,
+			wantOutput: "count = 42\n",
 		},
 		{
-			name:     "set new float",
-			initial:  ``,
-			path:     "ratio",
-			value:    3.14,
-			expected: "ratio",
+			name:       "set new float",
+			initial:    ``,
+			path:       "ratio",
+			value:      3.14,
+			wantOutput: "ratio = 3.14\n",
 		},
 		{
-			name:     "set new boolean",
-			initial:  ``,
-			path:     "enabled",
-			value:    true,
-			expected: "enabled",
+			name:       "set new boolean",
+			initial:    ``,
+			path:       "enabled",
+			value:      true,
+			wantOutput: "enabled = true\n",
 		},
 		{
 			name: "update existing value",
 			initial: `
 name = "old"
 `,
-			path:     "name",
-			value:    "new",
-			expected: "name",
+			path:       "name",
+			value:      "new",
+			wantOutput: "name = \"new\"\n",
 		},
 		{
 			name: "set nested value",
@@ -228,9 +227,9 @@ name = "old"
 [server]
 host = "localhost"
 `,
-			path:     "server.port",
-			value:    8080,
-			expected: "port",
+			path:  "server.port",
+			value: 8080,
+			wantOutput: "[server]\nhost = \"localhost\"\nport = 8080\n",
 		},
 	}
 
@@ -264,11 +263,8 @@ host = "localhost"
 				t.Errorf("After Set(%q, %v), Get() = %v, want %v", tt.path, tt.value, got, want)
 			}
 
-			// Verify the output contains the expected key
 			output := doc.String()
-			if !strings.Contains(output, tt.expected) {
-				t.Errorf("Output doesn't contain %q:\n%s", tt.expected, output)
-			}
+			wantGolden(t, output, tt.wantOutput)
 		})
 	}
 }
@@ -369,12 +365,11 @@ host = "localhost"
 // TestCommentPreservation tests that comments are preserved during round-trip
 func TestCommentPreservation(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		path           string
-		value          any
-		mustContain    []string
-		mustNotContain []string
+		name       string
+		input      string
+		path       string
+		value      any
+		wantOutput string
 	}{
 		{
 			name: "preserve top-level comments",
@@ -384,12 +379,9 @@ name = "test"
 # This is a footer comment
 version = 1
 `,
-			path:  "name",
-			value: "modified",
-			mustContain: []string{
-				"# This is a header comment",
-				"# This is a footer comment",
-			},
+			path:       "name",
+			value:      "modified",
+			wantOutput: "# This is a header comment\nname = \"modified\"\n\n# This is a footer comment\nversion = 1\n",
 		},
 		{
 			name: "preserve section comments",
@@ -401,13 +393,9 @@ host = "localhost"
 # The port to listen on
 port = 8080
 `,
-			path:  "server.port",
-			value: 9090,
-			mustContain: []string{
-				"# Server configuration",
-				"# The host to bind to",
-				"# The port to listen on",
-			},
+			path:       "server.port",
+			value:      9090,
+			wantOutput: "# Server configuration\n[server]\n\n# The host to bind to\nhost = \"localhost\"\n\n# The port to listen on\nport = 9090\n",
 		},
 		{
 			name: "preserve inline comments",
@@ -415,11 +403,9 @@ port = 8080
 name = "test"  # application name
 version = 1    # version number
 `,
-			path:  "version",
-			value: 2,
-			mustContain: []string{
-				"# application name",
-			},
+			path:       "version",
+			value:      2,
+			wantOutput: "name = \"test\"  # application name\nversion = 2  # version number\n",
 		},
 	}
 
@@ -437,18 +423,7 @@ version = 1    # version number
 			}
 
 			output := doc.String()
-
-			for _, mustHave := range tt.mustContain {
-				if !strings.Contains(output, mustHave) {
-					t.Errorf("Output missing expected comment %q:\n%s", mustHave, output)
-				}
-			}
-
-			for _, mustNotHave := range tt.mustNotContain {
-				if strings.Contains(output, mustNotHave) {
-					t.Errorf("Output contains unexpected text %q:\n%s", mustNotHave, output)
-				}
-			}
+			wantGolden(t, output, tt.wantOutput)
 		})
 	}
 }

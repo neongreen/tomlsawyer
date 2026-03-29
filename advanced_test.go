@@ -129,11 +129,8 @@ lt1 = 07:32:00
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	// We don't parse datetime values, but we should preserve them
 	output := doc.String()
-	if !strings.Contains(output, "1979-05-27T07:32:00Z") {
-		t.Errorf("DateTime value not preserved in output:\n%s", output)
-	}
+	wantGolden(t, output, "odt1 = 1979-05-27T07:32:00Z\nodt2 = 1979-05-27T00:32:00-07:00\nld1 = 1979-05-27\nlt1 = 07:32:00\n")
 }
 
 // TestNumberFormats tests different number formats
