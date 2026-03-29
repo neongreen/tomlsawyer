@@ -37,13 +37,13 @@ func TestWriteFile(t *testing.T) {
 			t.Fatalf("failed to parse written file: %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "test" {
+		if got, _, _ := doc.Get("name"); got != "test" {
 			t.Errorf("name = %v, want %q", got, "test")
 		}
-		if got, _ := doc.Get("version"); got != "1.0.0" {
+		if got, _, _ := doc.Get("version"); got != "1.0.0" {
 			t.Errorf("version = %v, want %q", got, "1.0.0")
 		}
-		if got, _ := doc.Get("enabled"); got != true {
+		if got, _, _ := doc.Get("enabled"); got != true {
 			t.Errorf("enabled = %v, want true", got)
 		}
 	})
@@ -77,13 +77,13 @@ other = "preserved"`
 			t.Fatalf("failed to parse written file: %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "new" {
+		if got, _, _ := doc.Get("name"); got != "new" {
 			t.Errorf("name = %v, want %q", got, "new")
 		}
-		if got, _ := doc.Get("version"); got != "1.0.0" {
+		if got, _, _ := doc.Get("version"); got != "1.0.0" {
 			t.Errorf("version = %v, want %q", got, "1.0.0")
 		}
-		if got, _ := doc.Get("other"); got != "preserved" {
+		if got, _, _ := doc.Get("other"); got != "preserved" {
 			t.Errorf("other = %v, want %q (should be preserved)", got, "preserved")
 		}
 	})
@@ -127,7 +127,7 @@ other = "preserved"`
 			t.Fatalf("failed to parse written file: %v", err)
 		}
 
-		if got, _ := doc.Get("database.host"); got != "localhost" {
+		if got, _, _ := doc.Get("database.host"); got != "localhost" {
 			t.Errorf("database.host = %v, want %q", got, "localhost")
 		}
 	})
@@ -168,10 +168,10 @@ func TestApplyMap(t *testing.T) {
 			t.Fatalf("ApplyMap() error = %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "test" {
+		if got, _, _ := doc.Get("name"); got != "test" {
 			t.Errorf("name = %v, want %q", got, "test")
 		}
-		if got, _ := doc.Get("version"); got != "1.0.0" {
+		if got, _, _ := doc.Get("version"); got != "1.0.0" {
 			t.Errorf("version = %v, want %q", got, "1.0.0")
 		}
 	})
@@ -192,10 +192,10 @@ version = "0.9.0"`)
 			t.Fatalf("ApplyMap() error = %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "new" {
+		if got, _, _ := doc.Get("name"); got != "new" {
 			t.Errorf("name = %v, want %q", got, "new")
 		}
-		if got, _ := doc.Get("version"); got != "0.9.0" {
+		if got, _, _ := doc.Get("version"); got != "0.9.0" {
 			t.Errorf("version = %v, want %q (should be preserved)", got, "0.9.0")
 		}
 	})
@@ -217,13 +217,13 @@ other = "value"`)
 			t.Fatalf("ApplyMap() error = %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "updated" {
+		if got, _, _ := doc.Get("name"); got != "updated" {
 			t.Errorf("name = %v, want %q", got, "updated")
 		}
-		if got, _ := doc.Get("version"); got != "1.0.0" {
+		if got, _, _ := doc.Get("version"); got != "1.0.0" {
 			t.Errorf("version = %v, want %q (should be preserved)", got, "1.0.0")
 		}
-		if got, _ := doc.Get("other"); got != "value" {
+		if got, _, _ := doc.Get("other"); got != "value" {
 			t.Errorf("other = %v, want %q (should be preserved)", got, "value")
 		}
 	})
@@ -246,24 +246,11 @@ other = "value"`)
 			t.Fatalf("ApplyMap() error = %v", err)
 		}
 
-		if got, _ := doc.Get("database.host"); got != "localhost" {
+		if got, _, _ := doc.Get("database.host"); got != "localhost" {
 			t.Errorf("database.host = %v, want %q", got, "localhost")
 		}
-		if got, _ := doc.Get("database.port"); got != int64(5432) {
+		if got, _, _ := doc.Get("database.port"); got != int64(5432) {
 			t.Errorf("database.port = %v, want 5432", got)
-		}
-	})
-
-	t.Run("returns error for nil document", func(t *testing.T) {
-		var doc *Document
-		values := map[string]any{"test": "value"}
-
-		err := doc.ApplyMap(values)
-		if err == nil {
-			t.Error("expected error for nil document, got nil")
-		}
-		if !strings.Contains(err.Error(), "nil document") {
-			t.Errorf("error should mention nil document, got: %v", err)
 		}
 	})
 
@@ -282,7 +269,7 @@ other = "value"`)
 			t.Fatalf("ApplyMap() error = %v", err)
 		}
 
-		got, _ := doc.Get("items")
+		got, _, _ := doc.Get("items")
 		if got == nil {
 			t.Fatal("items should not be nil")
 		}
@@ -308,13 +295,13 @@ other = "value"`)
 			t.Fatalf("ReplaceMap() error = %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "updated" {
+		if got, _, _ := doc.Get("name"); got != "updated" {
 			t.Errorf("name = %v, want %q", got, "updated")
 		}
-		if doc.Has("version") {
+		if ok, _ := doc.Has("version"); ok {
 			t.Error("version should have been removed")
 		}
-		if doc.Has("other") {
+		if ok, _ := doc.Has("other"); ok {
 			t.Error("other should have been removed")
 		}
 	})
@@ -335,10 +322,10 @@ other = "value"`)
 			t.Fatalf("ReplaceMap() error = %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "test" {
+		if got, _, _ := doc.Get("name"); got != "test" {
 			t.Errorf("name = %v, want %q", got, "test")
 		}
-		if got, _ := doc.Get("version"); got != "1.0.0" {
+		if got, _, _ := doc.Get("version"); got != "1.0.0" {
 			t.Errorf("version = %v, want %q", got, "1.0.0")
 		}
 	})
@@ -358,23 +345,11 @@ other = "value"`)
 			t.Fatalf("ReplaceMap() error = %v", err)
 		}
 
-		if got, _ := doc.Get("name"); got != "test" {
+		if got, _, _ := doc.Get("name"); got != "test" {
 			t.Errorf("name = %v, want %q", got, "test")
 		}
 	})
 
-	t.Run("returns error for nil document", func(t *testing.T) {
-		var doc *Document
-		values := map[string]any{"test": "value"}
-
-		err := doc.ReplaceMap(values)
-		if err == nil {
-			t.Error("expected error for nil document, got nil")
-		}
-		if !strings.Contains(err.Error(), "nil document") {
-			t.Errorf("error should mention nil document, got: %v", err)
-		}
-	})
 }
 
 // TestFlattenValues tests flattening nested maps

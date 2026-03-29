@@ -163,7 +163,7 @@ enabled = false
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := doc.Get(tt.path)
+			got, _, err := doc.Get(tt.path)
 			if err != nil {
 				t.Errorf("Get() error = %v", err)
 				return
@@ -247,7 +247,7 @@ host = "localhost"
 			}
 
 			// Verify the value was set
-			got, err := doc.Get(tt.path)
+			got, _, err := doc.Get(tt.path)
 			if err != nil {
 				t.Errorf("Get() after Set() error = %v", err)
 				return
@@ -316,7 +316,7 @@ name = "test"
 			}
 
 			// Verify the value was deleted
-			got, err := doc.Get(tt.path)
+			got, _, err := doc.Get(tt.path)
 			if err != nil {
 				t.Errorf("Get() after Delete() error = %v", err)
 				return
@@ -354,7 +354,7 @@ host = "localhost"
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := doc.Has(tt.path)
+			got, _ := doc.Has(tt.path)
 			if got != tt.want {
 				t.Errorf("Has(%q) = %v, want %v", tt.path, got, tt.want)
 			}
@@ -536,7 +536,7 @@ func TestArrays(t *testing.T) {
 				return
 			}
 
-			got, err := doc.Get(tt.path)
+			got, _, err := doc.Get(tt.path)
 			if err != nil {
 				t.Errorf("Get() error = %v", err)
 				return
@@ -580,7 +580,7 @@ person = { name = "John", age = 30 }
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	got, err := doc.Get("person")
+	got, _, err := doc.Get("person")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -617,7 +617,7 @@ func TestSetInlineTable(t *testing.T) {
 		return
 	}
 
-	got, err := doc.Get("person")
+	got, _, err := doc.Get("person")
 	if err != nil {
 		t.Errorf("Get() error = %v", err)
 		return
@@ -643,7 +643,7 @@ func TestSetInlineTable(t *testing.T) {
 func TestEdgeCases(t *testing.T) {
 	t.Run("empty path", func(t *testing.T) {
 		doc, _ := ParseString("name = 'test'")
-		_, err := doc.Get("")
+		_, _, err := doc.Get("")
 		if err == nil {
 			t.Error("Get('') should return error")
 		}
@@ -677,7 +677,7 @@ func TestEdgeCases(t *testing.T) {
 			t.Errorf("Set() error = %v", err)
 		}
 
-		got, err := doc.Get("text")
+		got, _, err := doc.Get("text")
 		if err != nil {
 			t.Errorf("Get() error = %v", err)
 		}

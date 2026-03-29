@@ -2,12 +2,12 @@
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/neongreen/tomlsawyer.svg)](https://pkg.go.dev/github.com/neongreen/tomlsawyer)
 
-A Go library for parsing, modifying, and serializing TOML documents while **preserving all comments, formatting, and declaration order**. It wraps the excellent [creachadair/tomledit](https://github.com/creachadair/tomledit) library to provide a stable, user-friendly API.
+A Go library for parsing, modifying, and serializing TOML documents while **preserving comments, declaration order, and structural style choices**. It wraps the excellent [creachadair/tomledit](https://github.com/creachadair/tomledit) library to provide a stable, user-friendly API.
 
 ## Features
 
 - **Comment Preservation**: All comments (block, inline, and trailing) are preserved during read-modify-write operations
-- **Format Preservation**: Original formatting and whitespace are maintained
+- **Format Preservation**: Declaration order, comment placement, and structural style choices are preserved. Whitespace within inline tables may be normalized by the formatter
 - **Order Preservation**: Declaration order of keys and sections is preserved
 - **Quote Style Preservation**: String quote styles (single `'`, double `"`, multiline `"""` or `'''`) are preserved when modifying values
 - **Nestedness Style Preservation**: Dotted keys (`server.host = "..."`) vs section style (`[server]` + `host = "..."`) are preserved
@@ -559,13 +559,15 @@ go test -v ./...
 | Feature | tomlsawyer | go-toml/v2 | BurntSushi/toml |
 |---------|------------|------------|-----------------|
 | Comment preservation | Yes | No | No |
-| Format preservation | Yes | No | No |
+| Format preservation | Yes* | No | No |
 | Order preservation | Yes | No | No |
 | Quote style preservation | Yes | No | No |
 | Nestedness preservation | Yes | No | No |
 | Marshal/Unmarshal | No | Yes | Yes |
 | Struct tags | No | Yes | Yes |
 | Use case | Config editing | Data serialization | Data serialization |
+
+*\* Whitespace within inline tables may be normalized by the formatter.*
 
 **When to use tomlsawyer:**
 - You need to edit TOML files while preserving comments

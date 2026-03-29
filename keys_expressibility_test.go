@@ -46,12 +46,12 @@ func TestHasLiteralDotInKeyName(t *testing.T) {
 	}
 
 	// Has should find "section" as a section
-	if !doc.Has("section") {
+	if ok, _ := doc.Has("section"); !ok {
 		t.Error("Has(section) should be true")
 	}
 
 	// Access the literal key via quoted path
-	val, err := doc.Get(`section."foo."`)
+	val, _, err := doc.Get(`section."foo."`)
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -82,12 +82,12 @@ a = { b = 2 }
 	}
 
 	// Verify both values are accessible
-	val1, _ := doc.Get(`config."a.b"`)
+	val1, _, _ := doc.Get(`config."a.b"`)
 	if val1 == nil {
 		t.Error("config.\"a.b\" should be accessible")
 	}
 
-	val2, _ := doc.Get("config.a.b")
+	val2, _, _ := doc.Get("config.a.b")
 	if val2 == nil {
 		t.Error("config.a.b (nested) should be accessible")
 	}
@@ -135,15 +135,15 @@ server.port = 8080
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	if !doc.Has("server") {
+	if ok, _ := doc.Has("server"); !ok {
 		t.Error("Has(server) should be true for dotted key prefix")
 	}
 
-	if !doc.Has("server.host") {
+	if ok, _ := doc.Has("server.host"); !ok {
 		t.Error("Has(server.host) should be true")
 	}
 
-	if doc.Has("server.nonexistent") {
+	if ok, _ := doc.Has("server.nonexistent"); ok {
 		t.Error("Has(server.nonexistent) should be false")
 	}
 }

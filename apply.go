@@ -56,10 +56,6 @@ func WriteFile(path string, values map[string]any) error {
 // any existing keys that are not present in values. This allows partial
 // updates without affecting unmanaged configuration.
 func (d *Document) ApplyMap(values map[string]any) error {
-	if d == nil {
-		return fmt.Errorf("failed to apply map: nil document")
-	}
-
 	desired := flattenValues(values)
 
 	// Sort keys for deterministic ordering
@@ -83,10 +79,6 @@ func (d *Document) ApplyMap(values map[string]any) error {
 // keys that are not present in values. Use ApplyMap instead if you want to
 // preserve unmanaged keys.
 func (d *Document) ReplaceMap(values map[string]any) error {
-	if d == nil {
-		return fmt.Errorf("failed to replace map: nil document")
-	}
-
 	desired := flattenValues(values)
 
 	current := d.collectPaths()

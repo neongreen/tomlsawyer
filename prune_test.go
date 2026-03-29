@@ -38,10 +38,10 @@ func TestPruneAfterMove(t *testing.T) {
 	}
 	doc.Prune()
 
-	if doc.Has("src") {
+	if ok, _ := doc.Has("src"); ok {
 		t.Error("expected [src] to be pruned")
 	}
-	got, err := doc.Get("dst.key")
+	got, _, err := doc.Get("dst.key")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestPruneKeepsSectionWithChildren(t *testing.T) {
 	}
 	doc.Prune()
 
-	if !doc.Has("parent.child.x") {
+	if ok, _ := doc.Has("parent.child.x"); !ok {
 		t.Error("expected parent.child.x to exist")
 	}
 	// [parent] should be kept because [parent.child] is a child

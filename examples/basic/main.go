@@ -34,9 +34,9 @@ max_connections = 100
 	}
 
 	// Read values
-	host, _ := doc.Get("server.host")
-	port, _ := doc.Get("server.port")
-	dbURL, _ := doc.Get("database.url")
+	host, _, _ := doc.Get("server.host")
+	port, _, _ := doc.Get("server.port")
+	dbURL, _, _ := doc.Get("database.url")
 
 	fmt.Printf("Server Host: %v\n", host)
 	fmt.Printf("Server Port: %v\n", port)
@@ -61,7 +61,7 @@ max_connections = 100
 
 	doc.Set("server.allowed_hosts", []string{"localhost", "127.0.0.1", "example.com"})
 
-	allowedHosts, _ := doc.Get("server.allowed_hosts")
+	allowedHosts, _, _ := doc.Get("server.allowed_hosts")
 	if hosts, ok := allowedHosts.([]any); ok {
 		fmt.Println("Allowed hosts:")
 		for i, h := range hosts {
@@ -80,7 +80,7 @@ max_connections = 100
 		"role":  "superuser",
 	})
 
-	admin, _ := doc.Get("admin")
+	admin, _, _ := doc.Get("admin")
 	if adminTable, ok := admin.(map[string]any); ok {
 		fmt.Println("Admin info:")
 		fmt.Printf("  Name: %v\n", adminTable["name"])
@@ -93,9 +93,11 @@ max_connections = 100
 	fmt.Println("Example 5: Delete Keys")
 	fmt.Println(strings.Repeat("-", 40))
 
-	fmt.Println("Before deletion, database.url exists:", doc.Has("database.url"))
+	hasBefore, _ := doc.Has("database.url")
+	fmt.Println("Before deletion, database.url exists:", hasBefore)
 	doc.Delete("database.url")
-	fmt.Println("After deletion, database.url exists:", doc.Has("database.url"))
+	hasAfter, _ := doc.Has("database.url")
+	fmt.Println("After deletion, database.url exists:", hasAfter)
 	fmt.Println()
 
 	// Example 6: Final TOML Output

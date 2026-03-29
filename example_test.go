@@ -12,7 +12,7 @@ func ExampleDocument_Get() {
 host = "localhost"
 port = 8080
 `)
-	host, _ := doc.Get("server.host")
+	host, _, _ := doc.Get("server.host")
 	fmt.Println(host)
 	// Output: localhost
 }
@@ -51,7 +51,7 @@ l = "log"
 `)
 	keys, _ := doc.Keys("aliases")
 	for _, k := range keys {
-		val, _ := doc.Get(fmt.Sprintf(`aliases."%s"`, k))
+		val, _, _ := doc.Get(fmt.Sprintf(`aliases."%s"`, k))
 		fmt.Printf("%s = %s\n", k, val)
 	}
 	// Output:
@@ -65,9 +65,12 @@ func ExampleDocument_Has() {
 [server]
 host = "localhost"
 `)
-	fmt.Println(doc.Has("server"))
-	fmt.Println(doc.Has("server.host"))
-	fmt.Println(doc.Has("nonexistent"))
+	h1, _ := doc.Has("server")
+	h2, _ := doc.Has("server.host")
+	h3, _ := doc.Has("nonexistent")
+	fmt.Println(h1)
+	fmt.Println(h2)
+	fmt.Println(h3)
 	// Output:
 	// true
 	// true

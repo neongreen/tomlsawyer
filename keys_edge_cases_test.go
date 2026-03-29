@@ -356,10 +356,10 @@ host = "localhost"
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	if !doc.Has("server") {
+	if ok, _ := doc.Has("server"); !ok {
 		t.Error("Has(server) = false, want true for table section")
 	}
-	if !doc.Has("server.host") {
+	if ok, _ := doc.Has("server.host"); !ok {
 		t.Error("Has(server.host) = false, want true")
 	}
 }
@@ -372,10 +372,10 @@ func TestHasDottedPrefix(t *testing.T) {
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	if !doc.Has("server") {
+	if ok, _ := doc.Has("server"); !ok {
 		t.Error("Has(server) = false, want true for dotted key prefix")
 	}
-	if !doc.Has("server.host") {
+	if ok, _ := doc.Has("server.host"); !ok {
 		t.Error("Has(server.host) = false, want true")
 	}
 }
@@ -388,10 +388,10 @@ func TestHasNonExistent(t *testing.T) {
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	if doc.Has("nope") {
+	if ok, _ := doc.Has("nope"); ok {
 		t.Error("Has(nope) = true, want false")
 	}
-	if doc.Has("name.child") {
+	if ok, _ := doc.Has("name.child"); ok {
 		t.Error("Has(name.child) = true, want false")
 	}
 }

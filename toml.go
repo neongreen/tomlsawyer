@@ -2,7 +2,9 @@
 //
 // This package wraps github.com/creachadair/tomledit to provide a stable,
 // user-friendly API for reading, modifying, and writing TOML files while
-// preserving all comments, formatting, and declaration order.
+// preserving comments, declaration order, and structural style choices
+// (dotted keys vs sections, quote styles). Whitespace layout may be
+// normalized.
 //
 // # Path Syntax
 //
@@ -41,6 +43,7 @@ package tomlsawyer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -51,6 +54,10 @@ import (
 	"github.com/creachadair/tomledit/parser"
 	"github.com/creachadair/tomledit/transform"
 )
+
+// ErrNotValue is returned by Get when the path refers to a table section
+// rather than a key-value entry.
+var ErrNotValue = errors.New("path refers to a table section, not a value")
 
 // Document represents a parsed TOML document with preserved structure,
 // including comments, formatting, and declaration order.
@@ -74,29 +81,35 @@ func ParseString(input string) (*Document, error) {
 }
 
 // Get retrieves a value at the given path.
-// Returns nil if the path doesn't exist.
+// Returns (value, true, nil) when the path exists and is a key-value entry,
+// (nil, false, nil) when the path doesn't exist, and
+// (nil, false, ErrNotValue) when the path refers to a table section.
 //
 // The path uses TOML dotted-key syntax: segments are separated by dots.
 // Use quoted segments for keys containing special characters:
 //
 //	doc.Get("server.host")       // key "host" under section "server"
 //	doc.Get(`aliases."."`)       // key "." under section "aliases"
-func (d *Document) Get(path string) (any, error) {
+func (d *Document) Get(path string) (any, bool, error) {
 	keys, err := parseKeyPath(path)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	entry := d.doc.First(keys...)
 	if entry == nil {
-		return nil, nil // Path doesn't exist
+		return nil, false, nil
 	}
 
 	if entry.KeyValue == nil {
-		return nil, nil // Entry is a section, not a value
+		return nil, false, ErrNotValue
 	}
 
-	return parseValue(entry.Value)
+	val, err := parseValue(entry.Value)
+	if err != nil {
+		return nil, false, err
+	}
+	return val, true, nil
 }
 
 // Set sets a value at the given path, creating intermediate sections
@@ -467,6 +480,10 @@ func (d *Document) Delete(path string) error {
 // For an inline table value, it returns the keys of that inline table.
 // Returns nil if the path doesn't exist or has no children.
 //
+// Keys are returned in document order. For inline tables, this is the order
+// they appear in the source. For Go maps passed to Set or FormatValueToString,
+// keys are sorted alphabetically since Go maps have no inherent order.
+//
 // The returned names are raw key names, not paths. For example,
 // Keys("aliases") might return [".", "..", "l"] where "." is a literal
 // key name containing a dot.
@@ -483,17 +500,25 @@ func (d *Document) Keys(path string) ([]string, error) {
 	// Check if it's a table section — look for sections whose heading starts with the path
 	entry := d.doc.First(keys...)
 	if entry != nil && entry.KeyValue != nil {
-		// It's a key-value entry; check if it's an inline table
+		// Check if the raw value is an inline table — preserve document order
+		if inline, ok := entry.Value.X.(parser.Inline); ok {
+			for _, kv := range inline {
+				if len(kv.Name) > 0 {
+					result = append(result, kv.Name[0])
+				}
+			}
+			if len(result) == 0 {
+				return nil, nil
+			}
+			return result, nil
+		}
+		// For other value types, fall back to parseValue
 		val, err := parseValue(entry.Value)
 		if err != nil {
 			return nil, err
 		}
-		if table, ok := val.(map[string]any); ok {
-			for k := range table {
-				result = append(result, k)
-			}
-			sort.Strings(result)
-			return result, nil
+		if _, ok := val.(map[string]any); ok {
+			return nil, nil
 		}
 		return nil, nil
 	}
@@ -598,24 +623,28 @@ func prefixMatches(key, prefix parser.Key) bool {
 	return true
 }
 
-// Has returns true if the given path exists in the document.
+// Has reports whether the given path exists in the document.
 // This includes key-value entries, table sections, and dotted key prefixes.
+// Parse errors (e.g. invalid paths like "foo.") are returned as the second value.
 //
 // Path syntax is the same as [Document.Get].
-func (d *Document) Has(path string) bool {
-	val, _ := d.Get(path)
-	if val != nil {
-		return true
-	}
-
+func (d *Document) Has(path string) (bool, error) {
 	keys, err := parseKeyPath(path)
 	if err != nil {
-		return false
+		return false, err
+	}
+
+	_, ok, err := d.Get(path)
+	if err != nil && !errors.Is(err, ErrNotValue) {
+		return false, err
+	}
+	if ok {
+		return true, nil
 	}
 
 	// Check if a table section exists with this name
 	if transform.FindTable(d.doc, keys...) != nil {
-		return true
+		return true, nil
 	}
 
 	// Check if any section heading starts with the given keys (implicit parents)
@@ -624,7 +653,7 @@ func (d *Document) Has(path string) bool {
 			continue
 		}
 		if len(sec.Heading.Name) >= len(keys) && prefixMatches(sec.Heading.Name, keys) {
-			return true
+			return true, nil
 		}
 	}
 
@@ -633,7 +662,7 @@ func (d *Document) Has(path string) bool {
 		for _, item := range d.doc.Global.Items {
 			if kv, ok := item.(*parser.KeyValue); ok {
 				if len(kv.Name) >= len(keys) && prefixMatches(kv.Name, keys) {
-					return true
+					return true, nil
 				}
 			}
 		}
@@ -650,12 +679,12 @@ func (d *Document) Has(path string) bool {
 			fullKey := append(parser.Key(nil), sec.Heading.Name...)
 			fullKey = append(fullKey, kv.Name...)
 			if len(fullKey) >= len(keys) && prefixMatches(fullKey, keys) {
-				return true
+				return true, nil
 			}
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 // TopLevelKeys returns all top-level key names in the document, deduplicated

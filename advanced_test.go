@@ -31,7 +31,7 @@ dc = "eqdc10"
 	}
 
 	// Test getting deeply nested values
-	val, err := doc.Get("database.connection.max_retries")
+	val, _, err := doc.Get("database.connection.max_retries")
 	if err != nil {
 		t.Errorf("Get() error = %v", err)
 	}
@@ -45,7 +45,7 @@ dc = "eqdc10"
 		t.Errorf("Set() error = %v", err)
 	}
 
-	val, err = doc.Get("database.connection.pool_size")
+	val, _, err = doc.Get("database.connection.pool_size")
 	if err != nil {
 		t.Errorf("Get() error = %v", err)
 	}
@@ -100,7 +100,7 @@ Violets are blue"""
 		t.Fatalf("ParseString() error = %v", err)
 	}
 
-	val, err := doc.Get("key1")
+	val, _, err := doc.Get("key1")
 	if err != nil {
 		t.Errorf("Get() error = %v", err)
 	}
@@ -174,7 +174,7 @@ func TestNumberFormats(t *testing.T) {
 				t.Fatalf("ParseString() error = %v", err)
 			}
 
-			val, err := doc.Get(tt.key)
+			val, _, err := doc.Get(tt.key)
 			if err != nil {
 				t.Errorf("Get() error = %v", err)
 			}
@@ -252,7 +252,7 @@ hosts = [
 			continue
 		}
 
-		got, err := doc.Get(tt.path)
+		got, _, err := doc.Get(tt.path)
 		if err != nil {
 			t.Errorf("Get(%q) error = %v", tt.path, err)
 			continue
@@ -336,7 +336,7 @@ url = "postgres://localhost/db"
 	done := make(chan bool)
 	for range 10 {
 		go func() {
-			val, _ := doc.Get("server.host")
+			val, _, _ := doc.Get("server.host")
 			if val != "localhost" {
 				t.Errorf("Concurrent Get() returned unexpected value: %v", val)
 			}
@@ -369,7 +369,7 @@ func TestEmptyValues(t *testing.T) {
 				return
 			}
 
-			got, err := doc.Get("key")
+			got, _, err := doc.Get("key")
 			if err != nil {
 				t.Errorf("Get() error = %v", err)
 				return
@@ -428,7 +428,7 @@ port = 8080
 
 	// Verify all updates
 	for path, expected := range updates {
-		got, err := doc.Get(path)
+		got, _, err := doc.Get(path)
 		if err != nil {
 			t.Errorf("Get(%q) error = %v", path, err)
 			continue
@@ -486,22 +486,22 @@ debug = true
 
 	// Verify deletions
 	for _, key := range keysToDelete {
-		if doc.Has(key) {
+		if ok, _ := doc.Has(key); ok {
 			t.Errorf("After Delete(%q), Has() returned true", key)
 		}
 	}
 
 	// Verify remaining keys still exist
-	if !doc.Has("name") {
+	if ok, _ := doc.Has("name"); !ok {
 		t.Error("name key was incorrectly deleted")
 	}
-	if !doc.Has("enabled") {
+	if ok, _ := doc.Has("enabled"); !ok {
 		t.Error("enabled key was incorrectly deleted")
 	}
-	if !doc.Has("server.host") {
+	if ok, _ := doc.Has("server.host"); !ok {
 		t.Error("server.host key was incorrectly deleted")
 	}
-	if !doc.Has("server.port") {
+	if ok, _ := doc.Has("server.port"); !ok {
 		t.Error("server.port key was incorrectly deleted")
 	}
 }
@@ -526,7 +526,7 @@ func TestUnicodeSupport(t *testing.T) {
 			continue
 		}
 
-		got, err := doc.Get(key)
+		got, _, err := doc.Get(key)
 		if err != nil {
 			t.Errorf("Get(%q) error = %v", key, err)
 			continue
@@ -547,7 +547,7 @@ func TestUnicodeSupport(t *testing.T) {
 
 	for i, str := range unicodeStrings {
 		key := "unicode" + string(rune('0'+i))
-		got, _ := doc2.Get(key)
+		got, _, _ := doc2.Get(key)
 		if got != str {
 			t.Errorf("After round-trip, Get(%q) = %q, want %q", key, got, str)
 		}

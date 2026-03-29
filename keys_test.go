@@ -60,7 +60,7 @@ b = { id = "456" }
 
 	// Verify we can use the discovered keys to access values
 	for _, key := range keys {
-		val, err := doc.Get("foo." + key + ".id")
+		val, _, err := doc.Get("foo." + key + ".id")
 		if err != nil {
 			t.Errorf("Get(foo.%s.id) error = %v", key, err)
 		}
@@ -150,8 +150,8 @@ person = { name = "Alice", age = 30, email = "alice@example.com" }
 		t.Fatalf("Keys() returned %d keys, want 3; got %v", len(keys), keys)
 	}
 
-	// Inline table keys should be sorted
-	expected := []string{"age", "email", "name"}
+	// Inline table keys should be in document order
+	expected := []string{"name", "age", "email"}
 	for i, k := range expected {
 		if keys[i] != k {
 			t.Errorf("Keys()[%d] = %q, want %q", i, keys[i], k)

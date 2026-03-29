@@ -113,12 +113,12 @@ output = "stdout"       # Output: stdout, stderr, file
 	fmt.Println("\nScenario 3: Reading current configuration")
 	fmt.Println(strings.Repeat("-", 50))
 
-	appName, _ := doc.Get("app.name")
-	version, _ := doc.Get("app.version")
-	env, _ := doc.Get("app.environment")
-	serverPort, _ := doc.Get("server.port")
-	dbName, _ := doc.Get("database.name")
-	logLevel, _ := doc.Get("logging.level")
+	appName, _, _ := doc.Get("app.name")
+	version, _, _ := doc.Get("app.version")
+	env, _, _ := doc.Get("app.environment")
+	serverPort, _, _ := doc.Get("server.port")
+	dbName, _, _ := doc.Get("database.name")
+	logLevel, _, _ := doc.Get("logging.level")
 
 	fmt.Printf("Application: %s v%s (%s)\n", appName, version, env)
 	fmt.Printf("Server: %s:%v\n", "0.0.0.0", serverPort)
@@ -126,8 +126,8 @@ output = "stdout"       # Output: stdout, stderr, file
 	fmt.Printf("Log Level: %s\n", logLevel)
 
 	// Check if cache is enabled
-	if doc.Has("cache.enabled") {
-		cacheEnabled, _ := doc.Get("cache.enabled")
+	if ok, _ := doc.Has("cache.enabled"); ok {
+		cacheEnabled, _, _ := doc.Get("cache.enabled")
 		fmt.Printf("Cache: %v\n", cacheEnabled)
 	}
 
@@ -136,7 +136,7 @@ output = "stdout"       # Output: stdout, stderr, file
 	fmt.Println(strings.Repeat("-", 50))
 
 	// Suppose we want to remove the old logging.output setting
-	if doc.Has("logging.output") {
+	if ok, _ := doc.Has("logging.output"); ok {
 		fmt.Println("Removing deprecated 'logging.output' setting...")
 		doc.Delete("logging.output")
 	}

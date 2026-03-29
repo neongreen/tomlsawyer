@@ -26,7 +26,7 @@ c = { id = "789", name = "Charlie" }
 
 	// Find the entry with id "456" and update it
 	for _, key := range keys {
-		val, err := doc.Get(fmt.Sprintf("foo.%s.id", key))
+		val, _, err := doc.Get(fmt.Sprintf("foo.%s.id", key))
 		if err != nil {
 			t.Fatalf("Get() error = %v", err)
 		}
@@ -40,13 +40,13 @@ c = { id = "789", name = "Charlie" }
 	}
 
 	// Verify the update
-	val, _ := doc.Get("foo.b.id")
+	val, _, _ := doc.Get("foo.b.id")
 	if val != "789" {
 		t.Errorf("After update, foo.b.id = %v, want 789", val)
 	}
 
 	// Verify other entries untouched
-	val, _ = doc.Get("foo.a.id")
+	val, _, _ = doc.Get("foo.a.id")
 	if val != "123" {
 		t.Errorf("foo.a.id = %v, want 123", val)
 	}
@@ -83,7 +83,7 @@ port = 5432
 	// Collect all hosts
 	hosts := make(map[string]string)
 	for _, name := range serverNames {
-		host, err := doc.Get(fmt.Sprintf("servers.%s.host", name))
+		host, _, err := doc.Get(fmt.Sprintf("servers.%s.host", name))
 		if err != nil {
 			t.Fatalf("Get() error = %v", err)
 		}
@@ -183,7 +183,7 @@ temp = { ttl = 60 }
 
 	// Delete all cache entries with ttl < 3600
 	for _, key := range keys {
-		ttl, _ := doc.Get(fmt.Sprintf("cache.%s.ttl", key))
+		ttl, _, _ := doc.Get(fmt.Sprintf("cache.%s.ttl", key))
 		if ttl.(int64) < 3600 {
 			doc.Delete(fmt.Sprintf("cache.%s", key))
 		}
@@ -224,7 +224,7 @@ analytics = true
 
 	// Verify all are now true
 	for _, key := range keys {
-		val, _ := doc.Get("features." + key)
+		val, _, _ := doc.Get("features." + key)
 		if val != true {
 			t.Errorf("features.%s = %v, want true", key, val)
 		}

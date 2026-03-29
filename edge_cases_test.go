@@ -78,7 +78,7 @@ func TestMalformedTOMLDoesntCorrupt(t *testing.T) {
 		t.Fatalf("Failed to parse valid TOML after malformed attempt: %v", err)
 	}
 
-	val, _ := doc.Get("name")
+	val, _, _ := doc.Get("name")
 	if val != "valid" {
 		t.Errorf("Library state corrupted after malformed TOML attempt")
 	}
@@ -551,7 +551,7 @@ func TestQuotedDotKey(t *testing.T) {
 
 	foundValue := false
 	for _, path := range testPaths {
-		val, err := doc.Get(path)
+		val, _, err := doc.Get(path)
 		if val != nil {
 			// If this ever works, it would be a great improvement!
 			t.Logf("Successfully retrieved value via Get(%q): %v", path, val)

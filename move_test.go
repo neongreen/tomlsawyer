@@ -216,15 +216,15 @@ func TestMoveKeyCrossSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	if doc2.Has("source.host") {
+	if ok, _ := doc2.Has("source.host"); ok {
 		t.Error("source.host should be gone")
 	}
-	val, _ := doc2.Get("dest.host")
+	val, _, _ := doc2.Get("dest.host")
 	if val != "localhost" {
 		t.Errorf("dest.host = %v, want localhost", val)
 	}
 	// port should still be in source
-	val, _ = doc2.Get("source.port")
+	val, _, _ = doc2.Get("source.port")
 	if val != int64(8080) {
 		t.Errorf("source.port = %v, want 8080", val)
 	}
@@ -244,11 +244,11 @@ func TestMoveKeyCrossSectionPreservesComment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("new.timeout")
+	val, _, _ := doc2.Get("new.timeout")
 	if val != int64(30) {
 		t.Errorf("new.timeout = %v, want 30", val)
 	}
-	if doc2.Has("old.timeout") {
+	if ok, _ := doc2.Has("old.timeout"); ok {
 		t.Error("old.timeout should be gone")
 	}
 }
@@ -268,11 +268,11 @@ func TestMoveKeyCrossSectionCreatesDestination(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("newdest.host")
+	val, _, _ := doc2.Get("newdest.host")
 	if val != "localhost" {
 		t.Errorf("newdest.host = %v, want localhost", val)
 	}
-	if doc2.Has("source.host") {
+	if ok, _ := doc2.Has("source.host"); ok {
 		t.Error("source.host should be gone")
 	}
 }
@@ -291,11 +291,11 @@ func TestMoveKeyToGlobalSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("key")
+	val, _, _ := doc2.Get("key")
 	if val != "value" {
 		t.Errorf("key = %v, want value", val)
 	}
-	if doc2.Has("section.key") {
+	if ok, _ := doc2.Has("section.key"); ok {
 		t.Error("section.key should be gone")
 	}
 }
@@ -314,11 +314,11 @@ func TestMoveKeyFromGlobalToSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("section.orphan")
+	val, _, _ := doc2.Get("section.orphan")
 	if val != "value" {
 		t.Errorf("section.orphan = %v, want value", val)
 	}
-	if doc2.Has("orphan") {
+	if ok, _ := doc2.Has("orphan"); ok {
 		t.Error("top-level orphan should be gone")
 	}
 }
@@ -337,11 +337,11 @@ func TestMoveKeyCrossSectionDeeplyNested(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("d.e.x")
+	val, _, _ := doc2.Get("d.e.x")
 	if val != int64(1) {
 		t.Errorf("d.e.x = %v, want 1", val)
 	}
-	if doc2.Has("a.b.c.x") {
+	if ok, _ := doc2.Has("a.b.c.x"); ok {
 		t.Error("a.b.c.x should be gone")
 	}
 }
@@ -361,14 +361,14 @@ func TestMoveKeyCrossSectionWithRename(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("dest.addr")
+	val, _, _ := doc2.Get("dest.addr")
 	if val != "localhost" {
 		t.Errorf("dest.addr = %v, want localhost", val)
 	}
-	if doc2.Has("source.host") {
+	if ok, _ := doc2.Has("source.host"); ok {
 		t.Error("source.host should be gone")
 	}
-	if doc2.Has("dest.host") {
+	if ok, _ := doc2.Has("dest.host"); ok {
 		t.Error("dest.host should not exist (renamed to addr)")
 	}
 }
@@ -404,7 +404,7 @@ func TestMoveInvalidNewPath(t *testing.T) {
 func TestMovePreservesStringValue(t *testing.T) {
 	doc, _ := ParseString("[a]\ns = \"hello\"\n\n[b]\n")
 	doc.Move("a.s", "b.s")
-	val, _ := doc.Get("b.s")
+	val, _, _ := doc.Get("b.s")
 	if val != "hello" {
 		t.Errorf("b.s = %v, want hello", val)
 	}
@@ -413,7 +413,7 @@ func TestMovePreservesStringValue(t *testing.T) {
 func TestMovePreservesIntValue(t *testing.T) {
 	doc, _ := ParseString("[a]\nn = 42\n\n[b]\n")
 	doc.Move("a.n", "b.n")
-	val, _ := doc.Get("b.n")
+	val, _, _ := doc.Get("b.n")
 	if val != int64(42) {
 		t.Errorf("b.n = %v, want 42", val)
 	}
@@ -422,7 +422,7 @@ func TestMovePreservesIntValue(t *testing.T) {
 func TestMovePreservesBoolValue(t *testing.T) {
 	doc, _ := ParseString("[a]\nf = true\n\n[b]\n")
 	doc.Move("a.f", "b.f")
-	val, _ := doc.Get("b.f")
+	val, _, _ := doc.Get("b.f")
 	if val != true {
 		t.Errorf("b.f = %v, want true", val)
 	}
@@ -431,7 +431,7 @@ func TestMovePreservesBoolValue(t *testing.T) {
 func TestMovePreservesArrayValue(t *testing.T) {
 	doc, _ := ParseString("[a]\narr = [1, 2, 3]\n\n[b]\n")
 	doc.Move("a.arr", "b.arr")
-	val, _ := doc.Get("b.arr")
+	val, _, _ := doc.Get("b.arr")
 	arr, ok := val.([]any)
 	if !ok || len(arr) != 3 {
 		t.Errorf("b.arr = %v, want [1,2,3]", val)
@@ -441,7 +441,7 @@ func TestMovePreservesArrayValue(t *testing.T) {
 func TestMovePreservesInlineTableValue(t *testing.T) {
 	doc, _ := ParseString("[a]\ntbl = { x = 1, y = 2 }\n\n[b]\n")
 	doc.Move("a.tbl", "b.tbl")
-	val, _ := doc.Get("b.tbl")
+	val, _, _ := doc.Get("b.tbl")
 	tbl, ok := val.(map[string]any)
 	if !ok {
 		t.Fatalf("b.tbl = %T, want map", val)
@@ -469,11 +469,11 @@ func TestMoveCrossSectionPreservesDottedStyle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("app.host")
+	val, _, _ := doc2.Get("app.host")
 	if val != "localhost" {
 		t.Errorf("app.host = %v, want localhost", val)
 	}
-	if doc2.Has("server.host") {
+	if ok, _ := doc2.Has("server.host"); ok {
 		t.Error("server.host should be gone")
 	}
 	// Verify dotted style is used (no [app] section header)
@@ -495,7 +495,7 @@ func TestMoveCrossSectionToExistingSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invalid TOML: %v", err)
 	}
-	val, _ := doc2.Get("app.host")
+	val, _, _ := doc2.Get("app.host")
 	if val != "localhost" {
 		t.Errorf("app.host = %v, want localhost", val)
 	}

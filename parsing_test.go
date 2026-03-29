@@ -4,7 +4,7 @@ import "testing"
 
 func TestGetLiteralStringBackslash(t *testing.T) {
 	doc, _ := ParseString(`path = 'C:\temp'`)
-	val, _ := doc.Get("path")
+	val, _, _ := doc.Get("path")
 	if val != `C:\temp` {
 		t.Errorf("Get = %q, want %q", val, `C:\temp`)
 	}
@@ -12,7 +12,7 @@ func TestGetLiteralStringBackslash(t *testing.T) {
 
 func TestGetLiteralStringNoEscape(t *testing.T) {
 	doc, _ := ParseString(`regex = '<\i\c*\s*>'`)
-	val, _ := doc.Get("regex")
+	val, _, _ := doc.Get("regex")
 	if val != `<\i\c*\s*>` {
 		t.Errorf("Get = %q, want %q", val, `<\i\c*\s*>`)
 	}
@@ -20,7 +20,7 @@ func TestGetLiteralStringNoEscape(t *testing.T) {
 
 func TestGetBasicStringEscape(t *testing.T) {
 	doc, _ := ParseString(`text = "hello\tworld\n"`)
-	val, _ := doc.Get("text")
+	val, _, _ := doc.Get("text")
 	if val != "hello\tworld\n" {
 		t.Errorf("Get = %q, want %q", val, "hello\tworld\n")
 	}
@@ -28,7 +28,7 @@ func TestGetBasicStringEscape(t *testing.T) {
 
 func TestGetMultilineLiteralStringNoEscape(t *testing.T) {
 	doc, _ := ParseString("path = '''\nC:\\temp\\file\n'''")
-	val, _ := doc.Get("path")
+	val, _, _ := doc.Get("path")
 	if val != "C:\\temp\\file\n" {
 		t.Errorf("Get = %q, want %q", val, "C:\\temp\\file\n")
 	}
@@ -36,7 +36,7 @@ func TestGetMultilineLiteralStringNoEscape(t *testing.T) {
 
 func TestGetHexInt(t *testing.T) {
 	doc, _ := ParseString("hex = 0xDEADBEEF")
-	val, _ := doc.Get("hex")
+	val, _, _ := doc.Get("hex")
 	if val != int64(0xDEADBEEF) {
 		t.Errorf("Get = %v, want %v", val, int64(0xDEADBEEF))
 	}
@@ -44,7 +44,7 @@ func TestGetHexInt(t *testing.T) {
 
 func TestGetOctalInt(t *testing.T) {
 	doc, _ := ParseString("oct = 0o755")
-	val, _ := doc.Get("oct")
+	val, _, _ := doc.Get("oct")
 	if val != int64(0o755) {
 		t.Errorf("Get = %v, want %v", val, int64(0o755))
 	}
@@ -52,7 +52,7 @@ func TestGetOctalInt(t *testing.T) {
 
 func TestGetBinaryInt(t *testing.T) {
 	doc, _ := ParseString("bin = 0b11010110")
-	val, _ := doc.Get("bin")
+	val, _, _ := doc.Get("bin")
 	if val != int64(0b11010110) {
 		t.Errorf("Get = %v, want %v", val, int64(0b11010110))
 	}
@@ -60,7 +60,7 @@ func TestGetBinaryInt(t *testing.T) {
 
 func TestGetUnderscoredInt(t *testing.T) {
 	doc, _ := ParseString("num = 1_000_000")
-	val, _ := doc.Get("num")
+	val, _, _ := doc.Get("num")
 	if val != int64(1_000_000) {
 		t.Errorf("Get = %v, want %v", val, int64(1_000_000))
 	}
@@ -71,7 +71,7 @@ func TestFormatInlineTableQuotesKeys(t *testing.T) {
 	doc.Set("t", map[string]any{"key with spaces": 1, "normal": 2})
 	output := doc.String()
 	doc2, _ := ParseString(output)
-	val, _ := doc2.Get(`t."key with spaces"`)
+	val, _, _ := doc2.Get(`t."key with spaces"`)
 	if val != int64(1) {
 		t.Errorf("round-trip failed for key with spaces: %v", val)
 	}

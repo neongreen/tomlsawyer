@@ -151,7 +151,7 @@ s = "status"
 
 	// Test getting quoted keys
 	t.Run("get quoted dot key", func(t *testing.T) {
-		val, err := doc.Get(`aliases."."`)
+		val, _, err := doc.Get(`aliases."."`)
 		if err != nil {
 			t.Fatalf("Get failed: %v", err)
 		}
@@ -161,7 +161,7 @@ s = "status"
 	})
 
 	t.Run("get quoted double dot key", func(t *testing.T) {
-		val, err := doc.Get(`aliases.".."`)
+		val, _, err := doc.Get(`aliases.".."`)
 		if err != nil {
 			t.Fatalf("Get failed: %v", err)
 		}
@@ -171,7 +171,7 @@ s = "status"
 	})
 
 	t.Run("get regular key in same section", func(t *testing.T) {
-		val, err := doc.Get("aliases.s")
+		val, _, err := doc.Get("aliases.s")
 		if err != nil {
 			t.Fatalf("Get failed: %v", err)
 		}
@@ -187,7 +187,7 @@ s = "status"
 			t.Fatalf("Set failed: %v", err)
 		}
 
-		val, err := doc.Get(`aliases."..."`)
+		val, _, err := doc.Get(`aliases."..."`)
 		if err != nil {
 			t.Fatalf("Get after Set failed: %v", err)
 		}
@@ -203,7 +203,7 @@ s = "status"
 			t.Fatalf("Delete failed: %v", err)
 		}
 
-		val, err := doc.Get(`aliases."."`)
+		val, _, err := doc.Get(`aliases."."`)
 		if err != nil {
 			t.Fatalf("Get after Delete failed: %v", err)
 		}
@@ -229,7 +229,7 @@ func TestInvalidPathsRejected(t *testing.T) {
 
 	for _, path := range invalidPaths {
 		t.Run("Get rejects "+path, func(t *testing.T) {
-			_, err := doc.Get(path)
+			_, _, err := doc.Get(path)
 			if err == nil {
 				t.Errorf("Get(%q) should return error but got nil", path)
 			}
@@ -276,7 +276,7 @@ l = "log"
 		}
 
 		for path, expected := range aliases {
-			val, err := doc.Get(path)
+			val, _, err := doc.Get(path)
 			if err != nil {
 				t.Errorf("Get(%q) failed: %v", path, err)
 				continue
@@ -309,7 +309,7 @@ l = "log"
 				t.Errorf("Set(%q) failed: %v", tc.path, err)
 			}
 
-			val, err := doc.Get(tc.path)
+			val, _, err := doc.Get(tc.path)
 			if err != nil {
 				t.Errorf("Get(%q) after Set failed: %v", tc.path, err)
 			}
